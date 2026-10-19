@@ -4,3 +4,4 @@ venv/
 .venv/
 *.pem
 *.sql
+*.ps1
