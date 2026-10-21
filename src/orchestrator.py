@@ -56,7 +56,7 @@ elif AGENT_LLM_SETTING == "DEEPSEEK":
 
 else:  # FALLBACK / DEFAULT RUNNER MODE
     print("🤗 Brain Mode: Local Fallback Activated. Binding Local Ollama (qwen2.5:7b)...")
-    from langchain_community.chat_models import ChatOllama
+    from langchain_ollama import ChatOllama
     llm = ChatOllama(model="qwen2.5:7b", temperature=0, num_predict=1024)
 
 fde_tools = [query_telemetry_db, fetch_corridor_conditions, search_compliance_sop]
