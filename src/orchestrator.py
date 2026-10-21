@@ -39,20 +39,26 @@ if AGENT_LLM_SETTING == "OPENAI":
     llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 elif AGENT_LLM_SETTING == "DEEPSEEK":
-    print("🐳 Brain Mode: Utilizing Flagship DeepSeek Cloud Reasoner (deepseek-v4-pro)...")
+    print("🐳 Brain Mode: Utilizing DeepSeek Cloud Reasoner...")
     from langchain_openai import ChatOpenAI
-    
-    # Fully updated to match 2026 DeepSeek API parameters and endpoint contracts
+
+    deepseek_api_key = (
+        st.secrets.get("DEEPSEEK_API_KEY")
+        or os.getenv("DEEPSEEK_API_KEY")
+    )
+
+    if not deepseek_api_key:
+        raise ValueError(
+            "DEEPSEEK_API_KEY is missing. "
+            "Configure it in Streamlit Cloud Secrets."
+        )
+
     llm = ChatOpenAI(
-        model="deepseek-flash",                           # deepseek-v4-flash, deepseek-v4-pro
+        model="deepseek-flash",
         temperature=0,
-        openai_api_key=os.getenv("DEEPSEEK_API_KEY"),
-        base_url="https://api.deepseek.com",     # Fixed connection string url endpoint
-        max_tokens=2048,                                   # Gives the deep reasoner plenty of output runway
-        # extra_body={
-        #     "thinking": {"type": "enabled"},              # Activates DeepSeek Deep-Thinking mode
-        #     "reasoning_effort": "high"                     # Drives maximal reasoning depth for logic maps
-        # }
+        api_key=deepseek_api_key,
+        base_url="https://api.deepseek.com",
+        max_tokens=2048,
     )
 
 else:  # FALLBACK / DEFAULT RUNNER MODE
