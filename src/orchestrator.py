@@ -30,7 +30,7 @@ class AgentState(TypedDict):
 # 2. FACTORY INITIALIZATION: AGENT REASONER LLM
 # ==========================================
 
-AGENT_LLM_SETTING = os.getenv("Agent_llm", "OLLAMA").strip().upper()
+AGENT_LLM_SETTING = os.getenv("Agent_llm").strip().upper()
 
 if AGENT_LLM_SETTING == "OPENAI":
     print("🤖 Brain Mode: Utilizing Cloud OpenAI Reasoner (gpt-4o)...")
