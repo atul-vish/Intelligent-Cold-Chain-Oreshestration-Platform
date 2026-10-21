@@ -4,18 +4,23 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target Environment'
+        description: "Target Environment"
         type: environment
         required: true
-        default: 'FDE-YT-Cold'
+        default: FDE-Cold-Chain
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     environment: ${{ inputs.environment }}
+
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
 
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -24,8 +29,18 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+
             cd /home/ubuntu/cold-chain-logistics-FDE-Project
-            git pull origin main
-            . venv/bin/activate
+
+            git pull --ff-only origin main
+
+            source venv/bin/activate
+
             pip install -r requirements.txt --quiet
+
             sudo systemctl restart streamlit
+
+            sudo systemctl is-active --quiet streamlit
+
+            echo "Deployment completed successfully."
