@@ -10,9 +10,9 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.memory import MemorySaver
 
-
-# SETUP & PATH RESOLUTION
-
+# ==========================================
+# 1. SETUP & PATH RESOLUTION
+# ==========================================
 script_dir = Path(__file__).resolve().parent
 project_root = script_dir.parents[0]
 
@@ -26,9 +26,9 @@ load_dotenv(project_root / ".env")
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
 
-
-# FACTORY INITIALIZATION: AGENT REASONER LLM
-
+# ==========================================
+# 2. FACTORY INITIALIZATION: AGENT REASONER LLM
+# ==========================================
 
 AGENT_LLM_SETTING = os.getenv("Agent_llm", "OLLAMA").strip().upper()
 
@@ -43,7 +43,7 @@ elif AGENT_LLM_SETTING == "DEEPSEEK":
     
     # Fully updated to match 2026 DeepSeek API parameters and endpoint contracts
     llm = ChatOpenAI(
-        model="deepseek-v4-flash",                           # deepseek-v4-flash, deepseek-v4-pro
+        model="deepseek-flash",                           # deepseek-v4-flash, deepseek-v4-pro
         temperature=0,
         openai_api_key=os.getenv("DEEPSEEK_API_KEY"),
         base_url="https://api.deepseek.com",     # Fixed connection string url endpoint
@@ -55,22 +55,16 @@ elif AGENT_LLM_SETTING == "DEEPSEEK":
     )
 
 else:  # FALLBACK / DEFAULT RUNNER MODE
-    print("🤗 Brain Mode: Local Fallback Activated. Binding Local Ollama (qwen2.5:1.5b)...")
-    from langchain_ollama import ChatOllama
-
-    llm = ChatOllama(
-        model="qwen2.5:1.5b",
-        temperature=0,
-        num_predict=512,
-        base_url="http://localhost:11434",
-    )
+    print("🤗 Brain Mode: Local Fallback Activated. Binding Local Ollama (qwen2.5:7b)...")
+    from langchain_community.chat_models import ChatOllama
+    llm = ChatOllama(model="qwen2.5:7b", temperature=0, num_predict=1024)
 
 fde_tools = [query_telemetry_db, fetch_corridor_conditions, search_compliance_sop]
 llm_with_tools = llm.bind_tools(fde_tools)
 
-
-# GRAPH ARCHITECTURE ASSEMBLY
-
+# ==========================================
+# 3. GRAPH ARCHITECTURE ASSEMBLY
+# ==========================================
 def reasoning_node(state: AgentState):
     response = llm_with_tools.invoke(state["messages"])
     return {"messages": [response]}
@@ -86,9 +80,9 @@ graph_builder.add_edge("tools", "reasoner")
 
 fde_agent = graph_builder.compile(checkpointer=MemorySaver())
 
-
-# CHAT LOOP TESTING PANEL
-
+# ==========================================
+# 4. CHAT LOOP TESTING PANEL
+# ==========================================
 if __name__ == "__main__":
     print("\n" + "="*55)
     print("🚀 FDE Supply Chain Orchestrator State Machine Online")

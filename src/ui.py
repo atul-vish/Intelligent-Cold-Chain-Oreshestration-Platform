@@ -115,9 +115,9 @@ with st.sidebar:
 # VIEW ROUTING (DISPATCH VS AUDIT)
 
 if app_mode == "🧊 Dispatch Console":
-    # ------------------------------------------
+    
     # TAB 1: CHAT UI & AGENT EXECUTION
-    # ------------------------------------------
+    
     st.title("Cold-Chain Incident Control Dashboard")
     st.caption("Production Data Engineering Pipeline • Real-Time Decision Optimization Platform")
 
@@ -225,9 +225,9 @@ if app_mode == "🧊 Dispatch Console":
 
 
 elif app_mode == "🛡️ Security & Audit Logs":
-    # ------------------------------------------
+    
     # TAB 2: AUDIT LOG VIEWER (REQUIRES ADMIN CREDENTIALS FROM .ENV OR INPUT)
-    # ------------------------------------------
+    
     st.title("🛡️ Enterprise Agent Audit Trail")
     st.caption("Secure database inspection of FDE_VIEWS.AgentAuditLog")
     
