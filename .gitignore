@@ -1,7 +1,151 @@
+# ============================================================
+# Intelligent Cold-Chain Orchestration Platform
+# Repository hygiene and secret protection
+# ============================================================
+
+# Secrets and credentials
 .env
-__pycache__/
-venv/
-.venv/
+.env.*
+!.env.example
+!.env.template
+.streamlit/secrets.toml
+.streamlit/secrets/
 *.pem
-*.sql
-*.ps1
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+secrets/
+credentials/
+*_credentials.*
+*credentials*.json
+
+# Python bytecode, environments, caches, and test output
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+.venv/
+venv/
+env/
+ENV/
+.python-env/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.dmypy.json
+
+# Python packaging and build output
+build/
+dist/
+site/
+wheels/
+*.egg
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs and temporary files
+*.log
+logs/
+log/
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+*.pid
+*.seed
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+*.duckdb
+
+# Raw/processed datasets (keep approved sample data intentionally)
+Data/raw/
+Data/processed/
+data/raw/
+data/processed/
+*.parquet
+*.feather
+*.arrow
+*.h5
+*.hdf5
+
+# Machine-learning model artifacts
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.joblib
+*.pkl
+*.pickle
+
+# Streamlit
+# Keep .streamlit/config.toml if it contains only non-secret settings.
+
+# JavaScript / frontend dependencies and generated output
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.yarn/
+.pnpm-store/
+.parcel-cache/
+.vite/
+.next/
+.nuxt/
+coverage/
+
+# Local frontend environment overrides
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Cloud / deployment local state
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+.serverless/
+.aws-sam/
+
+# Local-only overrides
+*.local
+
+# IMPORTANT:
+# Do not ignore *.sql globally: reviewed SQL source scripts belong in Git.
+# Do not ignore *.ps1 globally: safe project automation may belong in Git.
+# Review all files for credentials before committing.

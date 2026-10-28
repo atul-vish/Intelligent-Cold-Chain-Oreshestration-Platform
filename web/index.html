@@ -1,0 +1,1411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nivara</title>
+</head>
+<body>
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: fixed WebGL stage behind a scrolling story. Text sits left, the 3D object sits right and moves per chapter. */
+:root {
+  --bg0: #e4f4ff;
+  --bg1: #fff1dd;
+  --ink: #12263c;
+  --mute: #46607a;
+  --ice: #1d4e89;
+  --azure: #2e8bff;
+  --apricot: #ff7a3d;
+  --rose: #ff4f6d;
+  --lilac: #7b5cff;
+  --mint: #12b5a6;
+  --ember: #ff3d4f;
+  --sun: #ffc233;
+  --accent-text: #b4410b;
+  --glass: rgba(255, 255, 255, 0.66);
+  --glass-hi: rgba(255, 255, 255, 0.9);
+  --line: rgba(18, 38, 60, 0.14);
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Hanken Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(46rem 34rem at 92% 4%, rgba(255, 194, 51, 0.6), transparent 62%),
+    radial-gradient(52rem 38rem at -8% 52%, rgba(18, 181, 166, 0.3), transparent 60%),
+    radial-gradient(50rem 38rem at 78% 106%, rgba(255, 79, 109, 0.3), transparent 60%),
+    linear-gradient(175deg, #bfe6ff 0%, var(--bg0) 38%, var(--bg1) 100%);
+  background-color: var(--bg0);
+  color: var(--ink);
+  font: 400 1rem/1.6 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+  overflow-x: hidden;
+}
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.wrap { position: relative; z-index: 1; max-width: 76rem; margin: 0 auto; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--apricot); outline-offset: 3px; border-radius: 6px; }
+
+.sweep { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 28%, rgba(255, 255, 255, 0.7) 47%, rgba(255, 226, 150, 0.6) 52%, transparent 72%); }
+.sweep.go { animation: sweep 1.15s cubic-bezier(.5, 0, .2, 1); }
+@keyframes sweep { 0% { opacity: 0; transform: translateX(-100%); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateX(100%); } }
+.rv { transition: opacity .9s cubic-bezier(.2, .8, .2, 1), transform .9s cubic-bezier(.2, .8, .2, 1), filter .9s cubic-bezier(.2, .8, .2, 1); }
+.rv.pre { opacity: 0.25; transform: translateY(38px) scale(0.985); filter: blur(5px); }
+
+/* data charts */
+.insights { display: block; padding-block: 70px 80px; }
+.insights h2 { max-width: 36rem; }
+.data-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 22px; }
+.tiles { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-top: 22px; }
+.tile { display: grid; gap: 2px; }
+.tile b { font: 600 1.7rem/1.1 var(--f-display); font-stretch: 86%; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 0.82rem; color: var(--mute); }
+.charts { display: grid; gap: 16px; margin-top: 22px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr)); }
+.card { min-width: 0; padding: 18px 20px 14px; border-radius: 22px; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.card h3 { font-size: 1.1rem; }
+.card .sub { margin: 4px 0 0; font-size: 0.85rem; color: var(--mute); max-width: none; }
+.chart-empty { margin-top: 14px; min-height: 150px; display: grid; place-items: center; text-align: center; padding: 16px; border: 1.5px dashed var(--line); border-radius: 14px; color: var(--mute); font-size: 0.9rem; }
+.svg { width: 100%; height: auto; display: block; margin-top: 10px; overflow: visible; }
+.grid { stroke: var(--line); stroke-width: 1; }
+.base { stroke: var(--ink); stroke-opacity: 0.35; stroke-width: 1; }
+.ax { fill: var(--mute); font: 11px var(--f-mono); }
+@media (max-width: 600px) { .ax { font-size: 16px; } }
+.bar { fill: var(--azure); }
+.bar.hi { fill: var(--apricot); }
+.hit { fill: transparent; }
+.hitc { fill: transparent; }
+g[data-tip]:hover .bar { filter: brightness(1.1); }
+.line { fill: none; stroke: var(--azure); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.dot-end { fill: var(--apricot); stroke: #fff; stroke-width: 2; }
+.pt { fill: var(--azure); fill-opacity: 0.45; }
+.hbars { display: grid; gap: 10px; margin-top: 16px; }
+.hrow { display: grid; grid-template-columns: minmax(4.5rem, 9rem) 1fr auto; gap: 10px; align-items: center; font-size: 0.88rem; }
+.hl { overflow-wrap: anywhere; }
+.ht { display: block; height: 12px; border-radius: 6px; background: rgba(18, 38, 60, 0.07); overflow: hidden; }
+.ht i { display: block; height: 100%; background: var(--azure); border-radius: 0 4px 4px 0; }
+.hv { font: 500 0.82rem var(--f-mono); font-variant-numeric: tabular-nums; }
+.hv em { font-style: normal; color: var(--mute); }
+.tbl summary { cursor: pointer; margin-top: 10px; font-size: 0.85rem; color: var(--ice); }
+.tbl .table-scroll { max-height: 220px; }
+.tip { position: fixed; z-index: 50; pointer-events: none; padding: 7px 10px; border-radius: 10px; background: var(--ink); color: #fff; font: 500 0.82rem/1.35 var(--f-body); max-width: 17rem; box-shadow: 0 10px 24px -8px rgba(18, 38, 60, 0.5); }
+
+/* nav */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+  display: flex; justify-content: center;
+  background: linear-gradient(180deg, rgba(228, 244, 255, 0.85), rgba(228, 244, 255, 0));
+}
+.nav-in { width: 100%; max-width: 76rem; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 1.15rem/1 var(--f-display); letter-spacing: 0.04em; }
+.brand svg { width: 26px; height: 26px; }
+.links { display: flex; gap: 4px; align-items: center; }
+.links a { text-decoration: none; padding: 8px 12px; border-radius: 999px; color: var(--mute); font-size: 0.92rem; transition: color .2s, background .2s; }
+.links a:hover, .links a.on { color: var(--ink); background: rgba(18, 38, 60, 0.08); }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass); font-size: 0.82rem; color: var(--mute); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rose); }
+.dot.ok { background: var(--mint); }
+@media (max-width: 760px) { .links a:not(.keep) { display: none; } .pill .lbl { display: none; } }
+
+/* chapters */
+section { position: relative; display: flex; align-items: center; }
+.col { width: min(36rem, 100%); }
+.hero { padding-block: clamp(110px, 18vh, 170px) clamp(56px, 10vh, 110px); min-height: 78svh; }
+.chapter { min-height: 82svh; padding-block: 56px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2.7rem, 7.2vw, 5.6rem); line-height: 0.98; font-weight: 640; font-stretch: 82%; letter-spacing: -0.02em; }
+h1 .w { display: inline-block; animation: rise .9s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 90ms + 150ms); }
+@keyframes rise { from { opacity: 0; transform: translateY(0.45em) rotate(1.5deg); filter: blur(6px); } }
+h2 { font-size: clamp(2rem, 4.4vw, 3.3rem); line-height: 1.04; font-weight: 600; font-stretch: 86%; letter-spacing: -0.015em; }
+h3 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.005em; }
+.lede { font-size: clamp(1.05rem, 1.7vw, 1.22rem); color: var(--ice); max-width: 32rem; margin: 22px 0 0; }
+p { margin: 14px 0 0; color: var(--mute); max-width: 34rem; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.btn {
+  appearance: none; border: 0; cursor: pointer; font: 600 0.98rem var(--f-body); text-decoration: none;
+  padding: 13px 22px; border-radius: 14px; color: #2a0e06;
+  background: linear-gradient(135deg, var(--sun), var(--apricot) 55%, var(--rose));
+  box-shadow: 0 12px 30px -10px rgba(255, 95, 60, 0.55);
+  transition: transform .2s, box-shadow .2s;
+}
+.btn:hover { transform: translateY(-2px); box-shadow: 0 18px 36px -10px rgba(255, 79, 109, 0.6); }
+.btn.ghost { color: var(--ink); background: var(--glass); border: 1px solid var(--line); box-shadow: none; }
+.btn.small { padding: 9px 14px; font-size: 0.88rem; border-radius: 11px; }
+.facts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 38px; }
+.fact { padding: 9px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--glass); font-size: 0.88rem; color: var(--mute); }
+.fact b { color: var(--ink); font-weight: 600; }
+.hint { margin-top: 26px; font-size: 0.85rem; color: var(--mute); }
+
+/* tool cards */
+.tools { display: grid; gap: 14px; margin-top: 28px; width: min(36rem, 100%); }
+.tool {
+  position: relative; text-align: left; padding: 18px 20px; border-radius: 20px; border: 1px solid var(--line);
+  background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  transition: transform .25s, border-color .25s, background .25s; cursor: default;
+}
+.tool:hover, .tool:focus-within { transform: translateX(8px); border-color: var(--tc); background: var(--glass-hi); }
+.tool header { display: flex; align-items: center; gap: 12px; }
+.tool .ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--tc) 22%, transparent); }
+.tool .ic svg { width: 20px; height: 20px; stroke: var(--tc); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tool p { margin: 10px 0 0; font-size: 0.95rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip { font: 500 0.74rem var(--f-mono); padding: 4px 8px; border-radius: 8px; background: rgba(46, 139, 255, 0.12); color: var(--ice); }
+
+/* network */
+.ports { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; width: min(36rem, 100%); }
+.port-btn { font: 500 0.9rem var(--f-body); color: var(--ink); padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--glass); cursor: pointer; transition: border-color .2s, background .2s; }
+.port-btn:hover, .port-btn[aria-pressed="true"] { border-color: var(--apricot); background: var(--glass-hi); }
+.panel { margin-top: 18px; width: min(36rem, 100%); padding: 18px 20px; border-radius: 20px; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.panel h3 { font-size: 1.15rem; }
+.panel .coords { font: 500 0.82rem var(--f-mono); color: var(--accent-text); margin-top: 4px; }
+.panel .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.panel .out { margin-top: 14px; font-size: 0.92rem; color: var(--ice); min-height: 1.4em; }
+.note { font-size: 0.8rem; color: var(--mute); margin-top: 14px; max-width: 34rem; }
+
+/* excursion */
+.slider-box { margin-top: 28px; width: min(36rem, 100%); padding: 22px; border-radius: 22px; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.slider-box label { font-weight: 600; display: block; }
+.slider-box .sub { font-size: 0.82rem; color: var(--mute); }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 10px; border-radius: 99px; margin: 20px 0 10px; background: linear-gradient(90deg, var(--azure), var(--sun) 50%, var(--ember)); outline-offset: 6px; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); border: 4px solid #fff; box-shadow: 0 0 0 2px var(--ink), 0 6px 18px rgba(18, 38, 60, .35); cursor: grab; }
+input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--ink); border: 4px solid #fff; box-shadow: 0 0 0 2px var(--ink); cursor: grab; }
+.state { display: flex; align-items: center; gap: 12px; margin-top: 8px; font: 600 1.15rem var(--f-display); }
+.state i { width: 12px; height: 12px; border-radius: 50%; background: var(--azure); transition: background .3s; }
+.slider-box .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+
+/* console */
+.console { padding-block: 70px 90px; min-height: 0; display: block; }
+.console h2 { max-width: 36rem; }
+.shell { margin-top: 30px; border: 1px solid var(--line); border-radius: 26px; background: rgba(255, 255, 255, 0.74); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); overflow: hidden; box-shadow: 0 40px 90px -40px rgba(18, 38, 60, .45); }
+.shell-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.tabs { display: flex; gap: 4px; }
+.tab { font: 600 0.9rem var(--f-body); color: var(--mute); background: none; border: 0; padding: 8px 14px; border-radius: 10px; cursor: pointer; }
+.tab[aria-selected="true"] { color: var(--ink); background: rgba(46, 139, 255, 0.14); }
+.shell-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.shell-meta input { font: 500 0.8rem var(--f-mono); color: var(--ice); background: rgba(255, 255, 255, 0.8); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; width: 13rem; max-width: 100%; }
+.stage { height: min(60vh, 520px); min-height: 340px; overflow-y: auto; padding: 22px 20px; display: flex; flex-direction: column; gap: 16px; }
+.empty { margin: auto; text-align: center; max-width: 30rem; color: var(--mute); }
+.empty h3 { color: var(--ink); margin-bottom: 8px; }
+.empty code, .msg code { font: 500 0.85em var(--f-mono); background: rgba(255, 122, 61, 0.14); padding: 2px 6px; border-radius: 6px; color: var(--accent-text); }
+.sugg { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px; }
+.sugg button { font: 500 0.88rem var(--f-body); color: var(--ink); background: var(--glass-hi); border: 1px solid var(--line); border-radius: 12px; padding: 9px 13px; cursor: pointer; text-align: left; }
+.sugg button:hover { border-color: var(--apricot); }
+.msg { max-width: min(46rem, 92%); padding: 12px 16px; border-radius: 18px; }
+.msg p { margin: 0 0 8px; color: inherit; max-width: none; }
+.msg p:last-child { margin-bottom: 0; }
+.msg.user { align-self: flex-end; background: linear-gradient(135deg, #5b3fe0, #2563eb); color: #fff; border-bottom-right-radius: 6px; }
+.msg.bot { align-self: flex-start; background: rgba(255, 255, 255, 0.85); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+.msg .status { font-size: 0.85rem; color: var(--mute); display: flex; align-items: center; gap: 8px; }
+.msg .status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--lilac); animation: pulse 1s ease-in-out infinite; }
+.msg.done .status { display: none; }
+@keyframes pulse { 50% { transform: scale(1.6); opacity: .4; } }
+.traces { display: grid; gap: 6px; margin-bottom: 10px; }
+.trace { border-radius: 10px; background: rgba(255, 255, 255, 0.8); border: 1px solid var(--line); }
+.trace summary { cursor: pointer; padding: 7px 10px; font: 500 0.78rem var(--f-mono); color: var(--ice); }
+.trace.tool_input summary { color: #5b3fe0; }
+.trace pre { margin: 0; padding: 10px; font: 400 0.76rem/1.5 var(--f-mono); color: var(--mute); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14rem; overflow: auto; border-top: 1px solid var(--line); }
+.composer { display: flex; gap: 10px; padding: 14px; border-top: 1px solid var(--line); }
+.composer input { flex: 1; min-width: 0; font: 400 1rem var(--f-body); color: var(--ink); background: rgba(255, 255, 255, 0.9); border: 1px solid var(--line); border-radius: 14px; padding: 13px 16px; }
+.composer input::placeholder { color: var(--mute); }
+.audit { padding: 22px 20px; }
+.audit form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.audit label { display: grid; gap: 4px; font-size: 0.82rem; color: var(--mute); }
+.audit input { font: 400 0.95rem var(--f-body); color: var(--ink); background: rgba(255, 255, 255, 0.9); border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; }
+.table-scroll { overflow: auto; max-height: 340px; margin-top: 16px; border: 1px solid var(--line); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { position: sticky; top: 0; background: #eef7ff; color: var(--ice); font-weight: 600; }
+td { color: var(--mute); max-width: 22rem; overflow-wrap: anywhere; }
+.msg-line { margin-top: 12px; font-size: 0.9rem; color: var(--mute); }
+footer { position: relative; z-index: 1; max-width: 76rem; margin: 0 auto; padding: 24px 0 calc(40px + env(safe-area-inset-bottom, 0px)); color: var(--mute); font-size: 0.85rem; border-top: 1px solid var(--line); }
+
+@media (max-width: 860px) {
+  .col, .tools, .ports, .panel, .slider-box { width: 100%; }
+  .chapter { align-items: flex-end; min-height: 90svh; }
+  .tool, .panel, .slider-box, .col.card { background: rgba(255, 255, 255, 0.9); }
+  .tool:hover { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  h1 .w, .msg .status::before { animation: none; }
+  .tool, .btn, .rv { transition: none; }
+  .sweep { display: none; }
+}
+</style>
+
+<canvas id="gl" aria-hidden="true"></canvas>
+<div class="sweep" id="sweep" aria-hidden="true"></div>
+<div class="tip" id="tip" hidden></div>
+
+<nav class="nav" aria-label="Primary">
+  <div class="nav-in">
+    <a class="brand" href="#top" aria-label="Nivara home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7a3d"/><stop offset="1" stop-color="#7b5cff"/></linearGradient></defs><path d="M16 2 28 9v14L16 30 4 23V9z" fill="none" stroke="url(#bg)" stroke-width="2" stroke-linejoin="round"/><path d="M16 2v28M4 9l24 14M28 9 4 23" stroke="url(#bg)" stroke-width="1" opacity=".55"/></svg>
+      Nivara
+    </a>
+    <div class="links">
+      <a href="#console" data-nav="1" class="keep">Console</a>
+      <a href="#agent" data-nav="2">Agent</a>
+      <a href="#data" data-nav="3">Data</a>
+      <a href="#network" data-nav="4">Corridors</a>
+      <a href="#excursion" data-nav="5">Excursion</a>
+      <span class="pill" id="navStatus"><span class="dot" id="navDot"></span><span class="lbl" id="navLbl">Backend offline</span></span>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap" id="top">
+  <section class="hero" data-i="0">
+    <div class="col">
+      <h1 aria-label="Every shipment, inside its safe range.">
+        <span class="w" style="--i:0">Every</span> <span class="w" style="--i:1">shipment,</span> <span class="w" style="--i:2">inside</span> <span class="w" style="--i:3">its</span> <span class="w" style="--i:4">safe</span> <span class="w" style="--i:5">range.</span>
+      </h1>
+      <p class="lede">Ask your cold-chain data a question in plain language. One agent reads fleet telemetry, checks live corridor weather and looks up your operating procedures.</p>
+      <div class="ctas">
+        <a class="btn" href="#console">Open the console</a>
+        <a class="btn ghost" href="#network">Explore the corridors</a>
+      </div>
+      <div class="facts">
+        <span class="fact"><b>32,065</b> records, 26 columns</span>
+        <span class="fact"><b>SELECT-only</b> database access</span>
+        <span class="fact"><b>Every tool call</b> written to an audit log</span>
+      </div>
+      <p class="hint">Move your pointer to steer the camera. Scroll to put your foot down.</p>
+    </div>
+  </section>
+
+  <section class="console" id="console" data-i="1">
+    <div style="width:100%">
+      <h2>Dispatch console</h2>
+      <p>Ask about fleet telemetry, corridor updates or compliance thresholds. Each tool call appears with its input and raw output.</p>
+      <div class="shell">
+        <div class="shell-top">
+          <div class="tabs" role="tablist">
+            <button class="tab" role="tab" id="tabChat" aria-selected="true" aria-controls="viewChat">Dispatch</button>
+            <button class="tab" role="tab" id="tabAudit" aria-selected="false" aria-controls="viewAudit">Audit trail</button>
+          </div>
+          <div class="shell-meta">
+            <span class="pill"><span class="dot" id="cDot"></span><span id="cLbl">Backend offline</span></span>
+            <input id="apiBase" type="text" inputmode="url" placeholder="Backend URL (blank = this site)" aria-label="Backend URL" autocomplete="off">
+            <button class="btn small ghost" id="newSession" type="button">New session</button>
+          </div>
+        </div>
+        <div id="viewChat" role="tabpanel">
+          <div class="stage" id="stage" aria-live="polite"></div>
+          <form class="composer" id="composer" autocomplete="off">
+            <input id="q" type="text" placeholder="Query fleet telemetry, corridor updates, or compliance thresholds" aria-label="Your question" maxlength="2000">
+            <button class="btn" type="submit" id="sendBtn">Send</button>
+          </form>
+        </div>
+        <div class="audit" id="viewAudit" role="tabpanel" hidden>
+          <form id="auditForm">
+            <label>Admin user<input id="aUser" type="text" autocomplete="username"></label>
+            <label>Admin password<input id="aPass" type="password" autocomplete="current-password"></label>
+            <button class="btn small" type="submit">Load logs</button>
+          </form>
+          <div class="msg-line" id="auditMsg">Enter the admin credentials from your .env file to read the agent audit trail.</div>
+          <div class="table-scroll" id="auditTable" hidden></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter" id="agent" data-i="2">
+    <div>
+      <div class="col">
+        <h2>One agent, three instruments</h2>
+        <p>The reasoner decides which instrument a question needs, calls it, reads the result and answers. Hover a card and watch its satellite.</p>
+      </div>
+      <div class="tools">
+        <article class="tool" data-tool="telemetry" style="--tc: var(--azure)" tabindex="0">
+          <header><span class="ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></span><h3>Fleet telemetry</h3></header>
+          <p>Runs a read-only T-SQL query against the active fleet view. Anything that is not a SELECT is blocked before it reaches the database.</p>
+          <div class="chips"><span class="chip">Timestamp</span><span class="chip">Latitude</span><span class="chip">Longitude</span><span class="chip">Current_Temperature_C</span><span class="chip">Cargo_Condition_Code</span><span class="chip">Risk_Classification</span><span class="chip">Delay_Probability</span><span class="chip">Port_Congestion_Level</span><span class="chip">Route_Risk_Index</span></div>
+        </article>
+        <article class="tool" data-tool="corridor" style="--tc: var(--apricot)" tabindex="0">
+          <header><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 9h11a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3M3 19h8"/></svg></span><h3>Corridor conditions</h3></header>
+          <p>Fetches live weather for a GPS point from Open-Meteo. Wind above 10 km/h marks the corridor as high transit disruption.</p>
+        </article>
+        <article class="tool" data-tool="sop" style="--tc: var(--lilac)" tabindex="0">
+          <header><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"/></svg></span><h3>Compliance SOPs</h3></header>
+          <p>Searches your procedures in Pinecone and returns the two closest clauses, with the source file named, so an answer can be traced back.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="insights" id="data" data-i="3">
+    <div style="width:100%">
+      <h2>What the data shows</h2>
+      <p>Every chart is drawn from your own records. Nothing here is a placeholder: the charts stay empty until real data is loaded.</p>
+      <div class="data-bar">
+        <span class="pill"><span class="dot" id="dDot"></span><span id="dSrc">No data loaded</span></span>
+        <button class="btn small" id="dLoadDb" type="button">Load from the database</button>
+        <button class="btn small ghost" id="dLoadCsv" type="button">Load a CSV file</button>
+        <input id="csvFile" type="file" accept=".csv,text/csv" hidden>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="charts" id="charts"></div>
+      <p class="note" id="dataNote"></p>
+    </div>
+  </section>
+
+  <section class="chapter" id="network" data-i="4">
+    <div>
+      <div class="col">
+        <h2>Corridors you can touch</h2>
+        <p>Pick a hub on the globe, or from the list. The agent can check the conditions at those exact coordinates.</p>
+      </div>
+      <div class="ports" id="portList" role="group" aria-label="Example hubs"></div>
+      <div class="panel" id="portPanel" hidden>
+        <h3 id="pName"></h3>
+        <div class="coords" id="pCoords"></div>
+        <div class="row">
+          <button class="btn small" id="pAsk" type="button">Ask the agent</button>
+          <button class="btn small ghost" id="pLive" type="button">Fetch live weather</button>
+        </div>
+        <div class="out" id="pOut" aria-live="polite"></div>
+      </div>
+      <p class="note">Hubs and moving points are an illustration of the idea. They are not rows from your dataset.</p>
+    </div>
+  </section>
+
+  <section class="chapter" id="excursion" data-i="5">
+    <div>
+      <div class="col">
+        <h2>Feel a temperature excursion</h2>
+        <p>A cold chain fails quietly, then all at once. Drag the slider and watch the trailer display, the reefer fan and the whole truck react.</p>
+      </div>
+      <div class="slider-box">
+        <label for="sev">Excursion severity</label>
+        <span class="sub">Illustration only, not dataset values</span>
+        <input id="sev" type="range" min="0" max="100" value="0" aria-describedby="sevState">
+        <div class="state" id="sevState" aria-live="polite"><i id="sevDot"></i><span id="sevTxt">Inside range</span></div>
+        <div class="row"><button class="btn small" id="sevAsk" type="button">Ask what the SOP says</button></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+<footer>Nivara. Frontend for the FDE orchestrator: LangGraph agent, SQL Server telemetry, Open-Meteo corridors and Pinecone SOP search.</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- shared state ---------- */
+  var S = { section: 0, sev: 0, hoverTool: null, selectedPort: null, mx: 0, my: 0 };
+  var PORTS = [
+    { id: "lb", name: "Los Angeles / Long Beach", lat: 33.77, lon: -118.19 },
+    { id: "rtm", name: "Rotterdam", lat: 51.95, lon: 4.14 },
+    { id: "sin", name: "Singapore", lat: 1.26, lon: 103.82 },
+    { id: "nsa", name: "Nhava Sheva, Mumbai", lat: 18.95, lon: 72.95 },
+    { id: "sha", name: "Shanghai", lat: 31.23, lon: 121.49 },
+    { id: "ssz", name: "Santos", lat: -23.96, lon: -46.30 }
+  ];
+
+  /* ---------- WebGL stage ---------- */
+  var GL = null;
+  function initGL() {
+    if (!window.THREE) return;
+    var canvas = $("gl"), renderer;
+    try { renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true }); } catch (e) { return; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    var maxAniso = Math.min(renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1, 8);
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    camera.position.set(0, 0, 9.4);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    var l1 = new THREE.DirectionalLight(0xfff1c9, 1.25); l1.position.set(5, 6, 6); scene.add(l1);
+    var l2 = new THREE.DirectionalLight(0x7fd6ff, 0.9); l2.position.set(-6, 2, 4); scene.add(l2);
+    var l3 = new THREE.PointLight(0xb69cff, 1.2, 30); l3.position.set(0, 5, -4); scene.add(l3);
+
+    function track(mat, o) { mat.transparent = true; mat.userData = { base: o }; mat.opacity = o; return mat; }
+    function keep(mat) { mat.userData.keepT = true; return mat; }
+    function setOpacity(group, k) {
+      group.visible = k > 0.01;
+      group.traverse(function (n) {
+        var m = n.material;
+        if (m && m.userData && m.userData.base !== undefined) {
+          var o = m.userData.base * k; m.opacity = o; m.transparent = !!m.userData.keepT || o < 0.999;
+        }
+      });
+    }
+    function canvasTex(w, h) {
+      var c = document.createElement("canvas"); c.width = w; c.height = h;
+      var t = new THREE.CanvasTexture(c); t.anisotropy = maxAniso;
+      return { c: c, g: c.getContext("2d"), t: t };
+    }
+    function glowTexture() {
+      var o = canvasTex(128, 128), r = o.g.createRadialGradient(64, 64, 0, 64, 64, 64);
+      r.addColorStop(0, "rgba(255,255,255,1)"); r.addColorStop(0.35, "rgba(255,255,255,0.35)"); r.addColorStop(1, "rgba(255,255,255,0)");
+      o.g.fillStyle = r; o.g.fillRect(0, 0, 128, 128); o.t.needsUpdate = true;
+      return o.t;
+    }
+    var gTex = glowTexture();
+    function rrect(g, x, y, w, h, r) {
+      g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+    }
+
+    /* ===== sky reflections for glossy paint and chrome ===== */
+    try {
+      var envC = canvasTex(8, 256), eg = envC.g.createLinearGradient(0, 0, 0, 256);
+      eg.addColorStop(0, "#7fc4ff"); eg.addColorStop(0.45, "#e6f4ff"); eg.addColorStop(0.52, "#fff1d6"); eg.addColorStop(0.6, "#7d8da3"); eg.addColorStop(1, "#46566b");
+      envC.g.fillStyle = eg; envC.g.fillRect(0, 0, 8, 256); envC.t.needsUpdate = true;
+      var envS = new THREE.Scene();
+      envS.add(new THREE.Mesh(new THREE.SphereGeometry(20, 32, 16), new THREE.MeshBasicMaterial({ map: envC.t, side: THREE.BackSide })));
+      [[0, 12, 4, 11, 3], [-13, 5, 7, 7, 3], [12, 6, -6, 6, 2]].forEach(function (b) {
+        var sb = new THREE.Mesh(new THREE.PlaneGeometry(b[3], b[4]), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.4, 2.2), side: THREE.DoubleSide }));
+        sb.position.set(b[0], b[1], b[2]); sb.lookAt(0, 0, 0); envS.add(sb);
+      });
+      var pmg = new THREE.PMREMGenerator(renderer); scene.environment = pmg.fromScene(envS, 0.03).texture; pmg.dispose();
+    } catch (envErr) { if (window.console) console.warn("No reflections", envErr); }
+
+    /* ===== the reefer truck. The front points to +x. ===== */
+    var rig = new THREE.Group(); scene.add(rig);
+    var truck = new THREE.Group(); rig.add(truck);
+    function sm(color, rough, metal, extra) {
+      return track(new THREE.MeshStandardMaterial(Object.assign({ color: color, roughness: rough, metalness: metal }, extra || {})), 1);
+    }
+    function paint(color, rough, metal) {
+      return track(new THREE.MeshPhysicalMaterial({ color: color, roughness: rough, metalness: metal, clearcoat: 0.8, clearcoatRoughness: 0.1, envMapIntensity: 0.5 }), 1);
+    }
+    function bx(w, h, d, m, x, y, z, parent) {
+      var b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); (parent || truck).add(b); return b;
+    }
+    function cyl(r1, r2, len, m, x, y, z, axis, parent, seg) {
+      var g = new THREE.CylinderGeometry(r1, r2, len, seg || 16);
+      if (axis === "z") g.rotateX(Math.PI / 2); else if (axis === "x") g.rotateZ(Math.PI / 2);
+      var c = new THREE.Mesh(g, m); c.position.set(x, y, z); (parent || truck).add(c); return c;
+    }
+    function rrShape(w, h, r) {
+      var s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+      s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r);
+      s.quadraticCurveTo(x + w, y + h, x + w - r, y + h); s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r); s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+      return s;
+    }
+    function ext(shape, depth, bev, m, x, y, z, parent) {
+      var g = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.002, depth - 2 * bev), bevelEnabled: bev > 0, bevelThickness: bev, bevelSize: bev, bevelOffset: -bev, bevelSegments: 5, curveSegments: 18 });
+      g.translate(0, 0, -(depth / 2 - bev));
+      var mesh = new THREE.Mesh(g, m); mesh.position.set(x, y, z); (parent || truck).add(mesh); return mesh;
+    }
+    function rbox(w, h, d, r, m, x, y, z, parent) {
+      return ext(rrShape(w, h, Math.min(r * 1.6, w / 2.2, h / 2.2)), d, Math.min(r, d / 2.2, w / 2.2, h / 2.2), m, x, y, z, parent);
+    }
+
+    var whiteM = paint(0xf3f8fb, 0.34, 0.04), capM = paint(0xc9e2f4, 0.4, 0.1), darkM = sm(0x1b2738, 0.7, 0.2),
+        skirtM = sm(0x2b3b52, 0.6, 0.25), chromeM = sm(0xe6eef5, 0.1, 1.0),
+        glassM = sm(0x0f2238, 0.04, 0.95, { side: THREE.DoubleSide }), cabM = paint(0xff5a24, 0.38, 0.15),
+        unitM = paint(0x12b5a6, 0.35, 0.3), sunM = sm(0xffc233, 0.35, 0.3), rimM = sm(0xdde5ee, 0.22, 0.95),
+        stripeA = sm(0x3fa4ff, 0.4, 0.1, { emissive: 0x3fa4ff, emissiveIntensity: 0.3 }),
+        stripeB = sm(0xffc233, 0.4, 0.1, { emissive: 0xffc233, emissiveIntensity: 0.2 }),
+        stripeC = sm(0xff4f6d, 0.4, 0.1, { emissive: 0xff4f6d, emissiveIntensity: 0.2 }),
+        redM = track(new THREE.MeshBasicMaterial({ color: 0xe5263a }), 1),
+        amberM = track(new THREE.MeshBasicMaterial({ color: 0xffa21a }), 1),
+        lampM = track(new THREE.MeshBasicMaterial({ color: 0xfffbe6 }), 1);
+
+    /* chassis, fifth wheel and fuel tanks */
+    bx(6.1, 0.2, 1.0, darkM, 0, 0.52, 0);
+    bx(4.3, 0.1, 1.4, darkM, -0.85, 0.57, 0);
+    cyl(0.4, 0.4, 0.06, darkM, 1.36, 0.64, 0, "y");
+    var tankG = new THREE.CylinderGeometry(0.22, 0.22, 0.9, 20); tankG.rotateZ(Math.PI / 2);
+    [0.62, -0.62].forEach(function (z) {
+      var tk = new THREE.Mesh(tankG, chromeM); tk.position.set(0.7, 0.4, z); truck.add(tk);
+      [0.4, 1.0].forEach(function (dx) { var st = new THREE.Mesh(new THREE.TorusGeometry(0.225, 0.012, 6, 24), darkM); st.rotation.y = Math.PI / 2; st.position.set(dx - 0.05, 0.4, z); truck.add(st); });
+    });
+    [1, -1].forEach(function (s) {                                   /* landing gear */
+      bx(0.07, 0.42, 0.07, darkM, 0.95, 0.38, s * 0.5); bx(0.22, 0.03, 0.2, darkM, 0.95, 0.17, s * 0.5);
+    });
+
+    /* reefer trailer */
+    rbox(4.3, 1.95, 1.55, 0.05, whiteM, -0.85, 1.595, 0);
+    rbox(4.34, 0.06, 1.58, 0.025, capM, -0.85, 2.58, 0);
+    rbox(4.32, 0.11, 1.58, 0.03, darkM, -0.85, 0.68, 0);
+    [1, -1].forEach(function (s) {
+      bx(4.3, 0.08, 0.02, stripeA, -0.85, 0.98, s * 0.786);
+      bx(4.3, 0.08, 0.02, stripeB, -0.85, 1.1, s * 0.786);
+      bx(4.3, 0.08, 0.02, stripeC, -0.85, 1.22, s * 0.786);
+      rbox(2.2, 0.26, 0.04, 0.012, skirtM, -0.4, 0.5, s * 0.77);       /* aero skirts */
+      rbox(0.05, 0.34, 0.16, 0.015, redM, -3.03, 1.0, s * 0.64);       /* tail cluster */
+      bx(0.04, 0.1, 0.14, amberM, -3.03, 0.8, s * 0.64);
+      bx(0.04, 0.08, 0.12, lampM, -3.03, 0.68, s * 0.64);
+      bx(0.02, 0.4, 0.3, darkM, -3.05, 0.34, s * 0.68);                /* mud flaps */
+      cyl(0.016, 0.016, 0.95, chromeM, -3.06, 1.55, s * 0.13, "y", null, 8);  /* door lock bars */
+      bx(0.03, 0.1, 0.05, darkM, -3.03, 2.0, s * 0.74); bx(0.03, 0.1, 0.05, darkM, -3.03, 1.0, s * 0.74);  /* hinges */
+    });
+    bx(0.012, 1.85, 0.012, darkM, -3.03, 1.6, 0);                       /* door seam */
+    rbox(0.1, 0.15, 1.5, 0.03, darkM, -3.1, 0.5, 0);                    /* rear impact bar */
+
+    /* reefer unit with guard and spinning fan */
+    rbox(0.34, 0.52, 1.25, 0.04, unitM, 1.47, 2.26, 0);
+    bx(0.012, 0.03, 1.0, darkM, 1.648, 2.04, 0); bx(0.012, 0.03, 1.0, darkM, 1.648, 2.48, 0);
+    var fan = new THREE.Group(); fan.position.set(1.66, 2.26, 0); truck.add(fan);
+    for (var fb = 0; fb < 5; fb++) { var blade = bx(0.01, 0.3, 0.07, darkM, 0, 0, 0, fan); blade.rotation.x = fb * Math.PI * 2 / 5; }
+    cyl(0.04, 0.04, 0.04, chromeM, 0, 0, 0, "x", fan, 12);
+    [0.07, 0.13, 0.19].forEach(function (r) { var gr = new THREE.Mesh(new THREE.TorusGeometry(r, 0.008, 6, 36), chromeM); gr.rotation.y = Math.PI / 2; gr.position.set(1.675, 2.26, 0); truck.add(gr); });
+    for (var sp2 = 0; sp2 < 6; sp2++) { var spk = bx(0.008, 0.4, 0.008, chromeM, 1.675, 2.26, 0); spk.rotation.x = sp2 * Math.PI / 6; }
+
+    /* cab: extruded side profile with a raked windshield and rounded roof */
+    var cs = new THREE.Shape();
+    cs.moveTo(1.42, 0.62); cs.lineTo(3.02, 0.62); cs.lineTo(3.02, 1.1); cs.lineTo(2.92, 1.93);
+    cs.quadraticCurveTo(2.9, 2.03, 2.78, 2.03); cs.lineTo(1.62, 2.03); cs.quadraticCurveTo(1.42, 2.03, 1.42, 1.85); cs.lineTo(1.42, 0.62);
+    ext(cs, 1.5, 0.08, cabM, 0, 0, 0);
+    var fs2 = new THREE.Shape();                                         /* roof air deflector */
+    fs2.moveTo(1.5, 2.0); fs2.lineTo(2.72, 2.0); fs2.quadraticCurveTo(2.2, 2.2, 1.5, 2.56); fs2.lineTo(1.5, 2.0);
+    ext(fs2, 1.3, 0.05, cabM, 0, 0, 0);
+    var wsMid = new THREE.Vector3(2.97, 1.52, 0), wsN = new THREE.Vector3(0.993, 0.12, 0).normalize();
+    var ws = new THREE.Mesh(new THREE.PlaneGeometry(1.28, 0.86), glassM);
+    ws.position.copy(wsMid).addScaledVector(wsN, 0.004); ws.lookAt(wsMid.clone().addScaledVector(wsN, 2)); truck.add(ws);
+    var sw = new THREE.Shape();                                          /* door window */
+    sw.moveTo(1.9, 1.48); sw.lineTo(2.86, 1.48); sw.lineTo(2.86 - 0.05, 1.9); sw.lineTo(2.05, 1.9); sw.quadraticCurveTo(1.9, 1.9, 1.9, 1.75); sw.lineTo(1.9, 1.48);
+    var swG = new THREE.ShapeGeometry(sw, 10);
+    [1, -1].forEach(function (s) {
+      var w = new THREE.Mesh(swG, glassM); w.position.set(0, 0, s * 0.752); truck.add(w);
+      [[2.35, 0.78, 1.2, 0.012, 0.012, 0], [1.74, 0.78, 1.2, 0.012, 0.012, 0], [2.88, 0.78, 1.2, 0.012, 0.012, 0]].forEach(function (L) { bx(L[3], L[2], L[4], darkM, L[0] - 0.0, L[1] + L[2] / 2 - 0.0, s * 0.754); });
+      bx(1.14, 0.012, 0.012, darkM, 2.31, 0.78, s * 0.754);
+      rbox(0.14, 0.03, 0.05, 0.01, chromeM, 2.1, 1.36, s * 0.76);       /* door handle */
+      rbox(0.05, 0.22, 0.3, 0.02, darkM, 3.035, 0.96, s * 0.6);         /* headlamp housing */
+      bx(0.03, 0.17, 0.24, lampM, 3.06, 0.96, s * 0.6);
+      bx(0.03, 0.06, 0.1, amberM, 3.04, 0.77, s * 0.69);                /* indicators */
+      cyl(0.05, 0.05, 0.03, lampM, 3.13, 0.58, s * 0.5, "x", null, 14); /* fog lamps */
+      var arm = bx(0.03, 0.03, 0.2, darkM, 2.94, 1.55, s * 0.84);        /* mirrors */
+      rbox(0.1, 0.32, 0.12, 0.03, darkM, 2.97, 1.55, s * 0.96);
+      bx(0.012, 0.27, 0.09, glassM, 3.025, 1.55, s * 0.96);
+      var gl = new THREE.Sprite(track(new THREE.SpriteMaterial({ map: gTex, color: 0xfff0a0, depthWrite: false }), 0.5));
+      gl.position.set(3.25, 0.96, s * 0.6); gl.scale.set(1.3, 1.3, 1); keep(gl.material); truck.add(gl);
+    });
+    rbox(0.04, 0.36, 1.0, 0.02, chromeM, 3.035, 0.88, 0);                /* grille */
+    bx(0.02, 0.3, 0.92, darkM, 3.05, 0.88, 0);
+    for (var gs = 0; gs < 5; gs++) bx(0.025, 0.018, 0.9, chromeM, 3.062, 0.76 + gs * 0.06, 0);
+    rbox(0.2, 0.26, 1.54, 0.06, darkM, 3.1, 0.66, 0);                    /* bumper */
+    var hazMat = track(new THREE.MeshBasicMaterial({ color: 0x7a4a10 }), 1), hazG = new THREE.BoxGeometry(0.06, 0.05, 0.12);
+    [-0.45, -0.22, 0, 0.22, 0.45].forEach(function (z, i) { var hz = new THREE.Mesh(hazG, (i === 0 || i === 4) ? hazMat : amberM); hz.position.set(2.8, 2.06, z); truck.add(hz); });
+    cyl(0.055, 0.055, 2.0, chromeM, 1.36, 1.62, 0.88, "y", null, 14);   /* exhaust stack */
+    cyl(0.075, 0.075, 0.05, darkM, 1.36, 2.64, 0.88, "y", null, 14);
+
+    /* wheels: tyres with sidewalls and tread, steel rims, lug nuts and fenders */
+    var wheels = [];
+    var tprof = new THREE.SplineCurve([[0.23, -0.13], [0.3, -0.155], [0.37, -0.14], [0.395, -0.1], [0.405, -0.05], [0.405, 0.05], [0.395, 0.1], [0.37, 0.14], [0.3, 0.155], [0.23, 0.13]].map(function (p) { return new THREE.Vector2(p[0], p[1]); })).getPoints(30);
+    var tireG = new THREE.LatheGeometry(tprof, 44); tireG.rotateX(Math.PI / 2);
+    var tx = canvasTex(256, 64); tx.g.fillStyle = "#808080"; tx.g.fillRect(0, 0, 256, 64); tx.g.fillStyle = "#1a1a1a";
+    for (var tg = 0; tg < 32; tg++) tx.g.fillRect(tg * 8, 18, 3, 28, "#1a1a1a");
+    tx.g.fillRect(0, 31, 256, 2); tx.t.wrapS = THREE.RepeatWrapping; tx.t.needsUpdate = true;
+    var tireM = sm(0x151b24, 0.92, 0.04, { side: THREE.DoubleSide, bumpMap: tx.t, bumpScale: 1.2 });
+    var rimG = new THREE.CylinderGeometry(0.235, 0.235, 0.12, 28); rimG.rotateX(Math.PI / 2);
+    var capG = new THREE.CylinderGeometry(0.075, 0.095, 0.06, 18); capG.rotateX(Math.PI / 2);
+    var nutG = new THREE.CylinderGeometry(0.02, 0.02, 0.04, 8); nutG.rotateX(Math.PI / 2);
+    var accG = new THREE.TorusGeometry(0.235, 0.02, 8, 36);
+    function wheel(x, z, dual) {
+      var dir = z > 0 ? 1 : -1, g = new THREE.Group(); g.position.set(x, 0.4, z);
+      g.add(new THREE.Mesh(tireG, tireM));
+      if (dual) { var t2 = new THREE.Mesh(tireG, tireM); t2.position.z = -dir * 0.33; g.add(t2); }
+      var rim = new THREE.Mesh(rimG, rimM); rim.position.z = dir * 0.07; g.add(rim);
+      var cap = new THREE.Mesh(capG, chromeM); cap.position.z = dir * 0.15; g.add(cap);
+      var acc = new THREE.Mesh(accG, sunM); acc.position.z = dir * 0.132; g.add(acc);
+      for (var n = 0; n < 8; n++) { var nut = new THREE.Mesh(nutG, chromeM), a = n * Math.PI / 4; nut.position.set(Math.cos(a) * 0.15, Math.sin(a) * 0.15, dir * 0.135); g.add(nut); }
+      truck.add(g); wheels.push(g);
+      var w = dual ? 0.68 : 0.36, fsh = new THREE.Shape(); fsh.absarc(0, 0, 0.47, 0, Math.PI, false); fsh.absarc(0, 0, 0.43, Math.PI, 0, true);
+      var fg = new THREE.ExtrudeGeometry(fsh, { depth: w, bevelEnabled: false, curveSegments: 20 }); fg.translate(0, 0, -w / 2);
+      var fe = new THREE.Mesh(fg, darkM); fe.position.set(x, 0.4, z - (dual ? dir * 0.165 : 0)); truck.add(fe);
+    }
+    wheel(2.55, 0.72, false); wheel(2.55, -0.72, false);
+    wheel(1.75, 0.72, true); wheel(1.75, -0.72, true);
+    [-1.95, -2.6].forEach(function (x) { wheel(x, 0.68, true); wheel(x, -0.68, true); });
+
+    /* trailer side: logo and live status panel */
+    var lg = canvasTex(640, 250);
+    function drawLogo() {
+      var g = lg.g; g.clearRect(0, 0, 640, 250);
+      g.save(); g.translate(120, 125); g.strokeStyle = "#2e8bff"; g.lineWidth = 9; g.lineCap = "round";
+      for (var i = 0; i < 6; i++) { g.save(); g.rotate(i * Math.PI / 3); g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -84); g.moveTo(0, -50); g.lineTo(-22, -72); g.moveTo(0, -50); g.lineTo(22, -72); g.stroke(); g.restore(); }
+      g.restore();
+      g.fillStyle = "#12263c"; g.font = '700 98px "Bricolage Grotesque", "Segoe UI", sans-serif'; g.textBaseline = "alphabetic"; g.fillText("NIVARA", 235, 146);
+      g.fillStyle = "#e0521f"; g.font = '500 30px "IBM Plex Mono", monospace'; g.fillText("COLD CHAIN", 240, 196);
+      lg.t.needsUpdate = true;
+    }
+    drawLogo();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { drawLogo(); drawDisplay(S.sev); });
+    var dp = canvasTex(360, 160), dKey = -1;
+    function drawDisplay(v) {
+      var st = v < 25 ? 0 : v < 60 ? 1 : 2, col = ["#4fe3b5", "#ffc233", "#ff5a5a"][st], txt = ["INSIDE RANGE", "WATCH", "EXCURSION"][st], g = dp.g;
+      g.clearRect(0, 0, 360, 160);
+      rrect(g, 0, 0, 360, 160, 22); g.fillStyle = "#10243a"; g.fill(); g.strokeStyle = "rgba(255,255,255,0.2)"; g.lineWidth = 3; g.stroke();
+      g.fillStyle = "#8fb4d0"; g.font = '500 22px "IBM Plex Mono", monospace'; g.fillText("REEFER UNIT", 24, 42);
+      g.fillStyle = col; g.font = '700 40px "Bricolage Grotesque", "Segoe UI", sans-serif'; g.fillText(txt, 24, 98);
+      g.fillStyle = "rgba(255,255,255,0.14)"; rrect(g, 24, 116, 312, 14, 7); g.fill();
+      g.fillStyle = col; rrect(g, 24, 116, Math.max(14, 312 * (0.12 + 0.88 * v / 100)), 14, 7); g.fill();
+      dp.t.needsUpdate = true;
+    }
+    drawDisplay(0);
+    var logoMat = keep(track(new THREE.MeshStandardMaterial({ map: lg.t, roughness: 0.6, metalness: 0, depthWrite: false, envMapIntensity: 0.15 }), 1)),
+        dispMat = track(new THREE.MeshBasicMaterial({ map: dp.t }), 1);
+    [1, -1].forEach(function (s) {
+      var a = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.86), logoMat); a.position.set(-1.75, 1.85, s * 0.79); if (s < 0) a.rotation.y = Math.PI; truck.add(a);
+      var b = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 0.6), dispMat); b.position.set(0.35, 1.85, s * 0.79); if (s < 0) b.rotation.y = Math.PI; truck.add(b);
+    });
+
+    /* road, shadow, lane marks, wind lines, cold vapour */
+    var rc = canvasTex(512, 64), vg = rc.g.createLinearGradient(0, 0, 0, 64);
+    vg.addColorStop(0, "#2a4668"); vg.addColorStop(0.5, "#1d3350"); vg.addColorStop(1, "#2a4668");
+    rc.g.fillStyle = vg; rc.g.fillRect(0, 0, 512, 64); rc.g.fillStyle = "rgba(255,255,255,0.55)"; rc.g.fillRect(0, 5, 512, 2); rc.g.fillRect(0, 57, 512, 2); rc.t.needsUpdate = true;
+    var ac = canvasTex(512, 64), hg = ac.g.createLinearGradient(0, 0, 512, 0);
+    hg.addColorStop(0, "#000"); hg.addColorStop(0.25, "#fff"); hg.addColorStop(0.75, "#fff"); hg.addColorStop(1, "#000");
+    ac.g.fillStyle = hg; ac.g.fillRect(0, 0, 512, 64); ac.g.globalCompositeOperation = "multiply";
+    var vg2 = ac.g.createLinearGradient(0, 0, 0, 64); vg2.addColorStop(0, "#000"); vg2.addColorStop(0.12, "#fff"); vg2.addColorStop(0.88, "#fff"); vg2.addColorStop(1, "#000");
+    ac.g.fillStyle = vg2; ac.g.fillRect(0, 0, 512, 64); ac.t.needsUpdate = true;
+    var roadGeo = new THREE.PlaneGeometry(16, 3.8); roadGeo.rotateX(-Math.PI / 2);
+    var road = new THREE.Mesh(roadGeo, keep(track(new THREE.MeshBasicMaterial({ map: rc.t, alphaMap: ac.t, depthWrite: false }), 0.92)));
+    road.position.y = 0.004; rig.add(road);
+    var shc = canvasTex(128, 128), sgd = shc.g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    sgd.addColorStop(0, "rgba(10,24,40,0.8)"); sgd.addColorStop(1, "rgba(10,24,40,0)"); shc.g.fillStyle = sgd; shc.g.fillRect(0, 0, 128, 128); shc.t.needsUpdate = true;
+    var shGeo = new THREE.PlaneGeometry(8.6, 3.0); shGeo.rotateX(-Math.PI / 2);
+    var shadow = new THREE.Mesh(shGeo, keep(track(new THREE.MeshBasicMaterial({ map: shc.t, depthWrite: false }), 0.55)));
+    shadow.position.y = 0.012; rig.add(shadow);
+
+    var dashGeo = new THREE.BoxGeometry(1.1, 0.012, 0.1), dashes = [];
+    [-1.35, 1.35].forEach(function (z) {
+      for (var i = 0; i < 8; i++) {
+        var d = new THREE.Mesh(dashGeo, keep(track(new THREE.MeshBasicMaterial({ color: 0xfff1b8 }), 1)));
+        d.position.set(-9.6 + i * 2.4, 0.012, z); rig.add(d); dashes.push(d);
+      }
+    });
+
+    var SL = 46, slPos = new Float32Array(SL * 6), slCol = new Float32Array(SL * 6), slSeed = [], pal = [0x2e8bff, 0xff7a3d, 0x7b5cff, 0x12b5a6, 0xff4f6d], pcol = new THREE.Color();
+    for (var si = 0; si < SL; si++) {
+      var sz = (Math.random() - 0.5) * 7, sy = 0.25 + Math.random() * 3.6;
+      if (Math.abs(sz) < 1.1 && sy < 2.8) sz = (sz < 0 ? -1 : 1) * (1.2 + Math.random() * 2.8);
+      slSeed.push({ x: (Math.random() - 0.5) * 16, y: sy, z: sz, s: 0.6 + (si % 5) * 0.2 });
+      pcol.setHex(pal[si % pal.length]);
+      for (var v = 0; v < 2; v++) { slCol[si * 6 + v * 3] = pcol.r; slCol[si * 6 + v * 3 + 1] = pcol.g; slCol[si * 6 + v * 3 + 2] = pcol.b; }
+    }
+    var slGeo = new THREE.BufferGeometry(); slGeo.setAttribute("position", new THREE.BufferAttribute(slPos, 3)); slGeo.setAttribute("color", new THREE.BufferAttribute(slCol, 3));
+    var slMat = keep(track(new THREE.LineBasicMaterial({ vertexColors: true }), 0));
+    var streaks = new THREE.LineSegments(slGeo, slMat); streaks.frustumCulled = false; rig.add(streaks);
+
+    var steam = [];
+    for (var q = 0; q < 14; q++) {
+      var spr = new THREE.Sprite(keep(track(new THREE.SpriteMaterial({ map: gTex, color: 0xbfe6ff, depthWrite: false }), 0)));
+      rig.add(spr); steam.push({ s: spr, life: q / 14, i: q });
+    }
+    var smoke = [];
+    for (var q2 = 0; q2 < 8; q2++) {
+      var sprk = new THREE.Sprite(keep(track(new THREE.SpriteMaterial({ map: gTex, color: 0x6f7885, depthWrite: false }), 0)));
+      rig.add(sprk); smoke.push({ s: sprk, life: q2 / 8 });
+    }
+    var steamCol = new THREE.Color(), steamCool = new THREE.Color(0xbfe6ff), steamWarm = new THREE.Color(0xffb48a);
+
+    /* satellites for the three tools orbit the truck */
+    var sats = [];
+    [["telemetry", new THREE.OctahedronGeometry(0.26), 0x2e8bff, 3.6, 2.3, 0.0],
+     ["corridor", new THREE.TorusGeometry(0.22, 0.07, 12, 28), 0xff7a3d, 3.3, 2.7, 2.1],
+     ["sop", new THREE.BoxGeometry(0.36, 0.36, 0.36), 0x7b5cff, 3.9, 2.1, 4.2]].forEach(function (d) {
+      var m = new THREE.Mesh(d[1], track(new THREE.MeshStandardMaterial({ color: d[2], roughness: 0.25, metalness: 0.3, emissive: d[2], emissiveIntensity: 0.3 }), 1));
+      rig.add(m); sats.push({ key: d[0], mesh: m, rx: d[3], rz: d[4], phase: d[5], k: 1 });
+    });
+
+    /* ===== globe ===== */
+    var R = 2.2, globe = new THREE.Group(); scene.add(globe);
+    function ll(lat, lon, r) {
+      var phi = (90 - lat) * Math.PI / 180, th = (lon + 180) * Math.PI / 180;
+      return new THREE.Vector3(-r * Math.sin(phi) * Math.cos(th), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(th));
+    }
+    globe.add(new THREE.Mesh(new THREE.SphereGeometry(R * 0.985, 48, 32), track(new THREE.MeshBasicMaterial({ color: 0x2f7be8 }), 0.95)));
+    globe.add(new THREE.Mesh(new THREE.SphereGeometry(R * 1.09, 48, 32), track(new THREE.MeshBasicMaterial({ color: 0x9fe0ff, side: THREE.BackSide }), 0.3)));
+    var N = 3400, pos = new Float32Array(N * 3), ga = Math.PI * (3 - Math.sqrt(5));
+    for (var i = 0; i < N; i++) {
+      var y = 1 - (i / (N - 1)) * 2, rr = Math.sqrt(1 - y * y), a = ga * i;
+      pos[i * 3] = Math.cos(a) * rr * R; pos[i * 3 + 1] = y * R; pos[i * 3 + 2] = Math.sin(a) * rr * R;
+    }
+    var dg = new THREE.BufferGeometry(); dg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    globe.add(new THREE.Points(dg, track(new THREE.PointsMaterial({ color: 0xffffff, size: 0.03 }), 0.85)));
+    var gp = [];
+    for (var lat = -60; lat <= 60; lat += 30) for (var lon = -180; lon < 180; lon += 6) { gp.push(ll(lat, lon, R), ll(lat, lon + 6, R)); }
+    for (var lo = -180; lo < 180; lo += 30) for (var la = -84; la < 84; la += 6) { gp.push(ll(la, lo, R), ll(la + 6, lo, R)); }
+    globe.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(gp), track(new THREE.LineBasicMaterial({ color: 0xffffff }), 0.3)));
+
+    var hits = [], rings = [], pins = {};
+    PORTS.forEach(function (p) {
+      var v = ll(p.lat, p.lon, R), n = v.clone().normalize();
+      var pin = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), track(new THREE.MeshBasicMaterial({ color: 0xffc233 }), 1));
+      pin.position.copy(v); globe.add(pin); pins[p.id] = pin;
+      var rg = new THREE.Mesh(new THREE.RingGeometry(0.09, 0.105, 40), track(new THREE.MeshBasicMaterial({ color: 0xffd25a, side: THREE.DoubleSide }), 0.8));
+      rg.position.copy(v.clone().multiplyScalar(1.004)); rg.lookAt(v.clone().multiplyScalar(2)); globe.add(rg); rings.push(rg);
+      var hit = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
+      hit.position.copy(v); hit.userData.port = p; globe.add(hit); hits.push(hit);
+      p.vec = v; p.n = n;
+    });
+    var pairs = [["lb", "sha"], ["lb", "rtm"], ["rtm", "sin"], ["sin", "nsa"], ["nsa", "rtm"], ["ssz", "rtm"], ["sha", "sin"], ["lb", "ssz"]];
+    var pulses = [];
+    function byId(id) { return PORTS.filter(function (p) { return p.id === id; })[0]; }
+    pairs.forEach(function (pr, idx) {
+      var a = byId(pr[0]).vec, b = byId(pr[1]).vec;
+      var ctrl = a.clone().add(b).multiplyScalar(0.5).normalize().multiplyScalar(R + a.distanceTo(b) * 0.42);
+      var curve = new THREE.QuadraticBezierCurve3(a, ctrl, b);
+      globe.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(64)), track(new THREE.LineBasicMaterial({ color: 0xffe08a }), 0.8)));
+      for (var k = 0; k < 2; k++) {
+        var m = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), track(new THREE.MeshBasicMaterial({ color: 0xffffff }), 1));
+        globe.add(m); pulses.push({ curve: curve, mesh: m, t: (k * 0.5 + idx * 0.13) % 1, sp: 0.045 + (idx % 3) * 0.012 });
+      }
+    });
+
+    /* floating colour motes */
+    var SN = 150, sp = new Float32Array(SN * 3), sc = new Float32Array(SN * 3), mpal = [0xffc233, 0xff7a3d, 0xff4f6d, 0x7b5cff, 0x12b5a6, 0x2e8bff], pc = new THREE.Color();
+    for (var s = 0; s < SN; s++) {
+      sp[s * 3] = (Math.random() - 0.5) * 22; sp[s * 3 + 1] = (Math.random() - 0.5) * 14; sp[s * 3 + 2] = (Math.random() - 0.5) * 12 - 2;
+      pc.setHex(mpal[s % mpal.length]); sc[s * 3] = pc.r; sc[s * 3 + 1] = pc.g; sc[s * 3 + 2] = pc.b;
+    }
+    var sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.BufferAttribute(sp, 3)); sg.setAttribute("color", new THREE.BufferAttribute(sc, 3));
+    scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ size: 0.42, map: gTex, vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false })));
+
+    /* ===== chapter choreography: hero, console, agent, corridors, excursion ===== */
+    function frames(aspect) {
+      var wide = aspect > 1.15, off = wide ? 2.9 : 0, up = wide ? 0 : 1.8, sc2 = wide ? 1 : 0.66;
+      return [
+        { rx: off - 0.9, ry: up - 1.1, rr: -0.55, rs: 0.78 * sc2, co: 1, gx: off, gy: up, gs: 0.2, go: 0, cam: 9.4 },
+        { rx: 0, ry: -1.5, rr: -0.18, rs: 0.56 * (wide ? 1 : 1.1), co: 0.3, gx: 0, gy: 0, gs: 0.2, go: 0, cam: 10.5 },
+        { rx: off - 1.6, ry: up - 1.2, rr: -0.95, rs: 0.86 * sc2, co: 1, gx: off, gy: up, gs: 0.2, go: 0, cam: 8.6 },
+        { rx: 0, ry: -1.9, rr: -0.12, rs: 0.5 * (wide ? 1 : 1.1), co: 0.22, gx: 0, gy: 0, gs: 0.2, go: 0, cam: 10.8 },
+        { rx: off + 0.8, ry: up + 0.2, rr: 1.5, rs: 0.1, co: 0, gx: off, gy: up, gs: 1.0 * sc2, go: 1, cam: 8.2 },
+        { rx: off - 0.4, ry: up - 1.05, rr: -0.1, rs: 0.66 * sc2, co: 1, gx: off, gy: up, gs: 0.2, go: 0, cam: 9.0 }
+      ];
+    }
+    var cur = { rx: 0, ry: -1.2, rr: -0.3, rs: 0.86, co: 1, gx: 0, gy: 0, gs: 0.2, go: 0, cam: 9.4 };
+    var KEYS = ["rx", "ry", "rr", "rs", "co", "gx", "gy", "gs", "go", "cam"];
+    var cICE = new THREE.Color(0x3fa4ff), cAPR = new THREE.Color(0xffb42e), cEMB = new THREE.Color(0xff3d5a), tmp = new THREE.Color();
+    var raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), targetRotY = 0, targetRotX = 0, selected = null;
+
+    function resize() {
+      var w = window.innerWidth, h = window.innerHeight;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    window.addEventListener("resize", resize); resize();
+
+    function pick(e) {
+      ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+      raycaster.setFromCamera(ndc, camera);
+      var h = raycaster.intersectObjects(hits, false)[0];
+      if (!h) return null;
+      var wp = h.object.getWorldPosition(new THREE.Vector3()), toCam = camera.position.clone().sub(wp);
+      var nrm = h.object.position.clone().normalize().transformDirection(globe.matrixWorld);
+      return nrm.dot(toCam.normalize()) > 0.05 ? h.object.userData.port : null;
+    }
+    window.addEventListener("pointermove", function (e) {
+      S.mx = (e.clientX / window.innerWidth) * 2 - 1; S.my = (e.clientY / window.innerHeight) * 2 - 1;
+      if (S.section === 4) document.body.style.cursor = pick(e) ? "pointer" : "";
+    }, { passive: true });
+    window.addEventListener("click", function (e) {
+      if (S.section !== 4 || e.target.closest("a,button,input,.panel,.tool,.nav")) return;
+      var p = pick(e); if (p) selectPort(p.id);
+    });
+
+    GL = {
+      focus: function (p) {
+        selected = p;
+        targetRotY = Math.atan2(-p.n.x, p.n.z);
+        targetRotX = p.lat * Math.PI / 180 * 0.7;
+      }
+    };
+
+    var last = performance.now(), time = 0, vis = true, lastSY = window.pageYOffset || 0, vel = 0, inited = false, lastFov = 42;
+    document.addEventListener("visibilitychange", function () { vis = !document.hidden; last = performance.now(); });
+    function frame(now) {
+      requestAnimationFrame(frame);
+      if (!vis) return;
+      var dt = Math.min((now - last) / 1000, 0.05); last = now; time += dt;
+      var k = 1 - Math.exp(-dt * 3.2), f = frames(camera.aspect)[S.section];
+      if (!inited) { cur.rx = f.rx - 7; inited = true; }
+      var travel = Math.min(Math.abs(f.rx - cur.rx), 8);
+      KEYS.forEach(function (n) { cur[n] += (f[n] - cur[n]) * k; });
+
+      /* scroll speed drives the road, the wheels and the lens */
+      var sy0 = window.pageYOffset || 0, inst = Math.abs(sy0 - lastSY) / Math.max(dt, 0.001) / 1000; lastSY = sy0;
+      vel += (Math.min(inst, 5) - vel) * Math.min(1, dt * 5);
+      var speed = reduce ? 0.5 : 2.4 + vel * 3.6 + travel * 0.9;
+      var t = S.sev / 100;
+
+      rig.position.set(cur.rx, cur.ry, 0); rig.scale.setScalar(Math.max(cur.rs, 0.001));
+      rig.rotation.y = cur.rr + S.mx * 0.14; rig.rotation.x = S.my * 0.03;
+      var shake = reduce ? 0 : Math.max(0, t - 0.4) * 0.05;
+      truck.position.y = Math.sin(time * 2.2) * 0.008 + Math.sin(time * 37) * shake + vel * Math.sin(time * 20) * 0.006;
+      truck.position.z = Math.sin(time * 29) * shake * 0.6;
+      truck.rotation.z = Math.sin(time * 1.7) * 0.004 + Math.min(vel, 3) * 0.008;
+
+      wheels.forEach(function (w) { w.rotation.z -= speed / 0.36 * dt; });
+      fan.rotation.x += dt * (6 + t * 28 + speed);
+      dashes.forEach(function (d) {
+        d.position.x -= speed * dt; if (d.position.x < -9.6) d.position.x += 19.2;
+        d.material.userData.base = Math.max(0, 1 - Math.pow(Math.abs(d.position.x) / 9.6, 1.4));
+      });
+      for (var i2 = 0; i2 < SL; i2++) {
+        var sd = slSeed[i2]; sd.x -= speed * 1.9 * sd.s * dt; if (sd.x < -8) sd.x += 16;
+        var len = 0.5 + vel * 2.2 + (i2 % 4) * 0.2;
+        slPos[i2 * 6] = sd.x; slPos[i2 * 6 + 1] = sd.y; slPos[i2 * 6 + 2] = sd.z; slPos[i2 * 6 + 3] = sd.x + len; slPos[i2 * 6 + 4] = sd.y; slPos[i2 * 6 + 5] = sd.z;
+      }
+      slGeo.attributes.position.needsUpdate = true;
+      slMat.userData.base = Math.min(0.08 + vel * 0.3 + travel * 0.05, 0.6);
+
+      /* severity: colour of the stripe, vapour, hazard lights */
+      if (t < 0.5) tmp.copy(cICE).lerp(cAPR, t * 2); else tmp.copy(cAPR).lerp(cEMB, (t - 0.5) * 2);
+      stripeA.color.lerp(tmp, 0.12); stripeA.emissive.lerp(tmp, 0.12);
+      var dState = S.sev < 25 ? 0 : S.sev < 60 ? 1 : 2, key = Math.floor(S.sev / 4) * 10 + dState;
+      if (key !== dKey) { dKey = key; drawDisplay(S.sev); }
+      hazMat.color.setHex(t > 0.6 && Math.floor(time * 3) % 2 === 0 ? 0xffb020 : 0x7a4a10);
+      steamCol.copy(steamCool).lerp(steamWarm, t);
+      steam.forEach(function (p) {
+        p.life += dt * (0.35 + t * 0.25); if (p.life > 1) p.life -= 1;
+        var L = p.life;
+        p.s.position.set(1.7 - L * (1.2 + speed * 0.5), 2.55 + L * 0.9, Math.sin(p.i * 2.1 + L * 5) * 0.3);
+        p.s.scale.setScalar(0.35 + L * 1.2);
+        p.s.material.userData.base = Math.sin(L * Math.PI) * (0.42 + t * 0.2);
+        p.s.material.color.copy(steamCol);
+      });
+      smoke.forEach(function (p) {
+        p.life += dt * 0.45; if (p.life > 1) p.life -= 1;
+        var L = p.life;
+        p.s.position.set(1.36 - L * (0.8 + speed * 0.45), 2.7 + L * 0.7, 0.88);
+        p.s.scale.setScalar(0.18 + L * 0.7);
+        p.s.material.userData.base = Math.sin(L * Math.PI) * 0.22;
+      });
+      sats.forEach(function (s) {
+        var tgt = S.hoverTool === s.key ? 1.9 : 1; s.k += (tgt - s.k) * 0.12;
+        var a = time * (S.hoverTool === s.key ? 0.9 : 0.45) + s.phase;
+        s.mesh.position.set(Math.cos(a) * s.rx, 1.5 + Math.sin(a * 1.3 + s.phase) * 0.55, Math.sin(a) * s.rz);
+        s.mesh.scale.setScalar(s.k); s.mesh.rotation.x += dt * 1.2; s.mesh.rotation.y += dt * 0.8;
+        s.mesh.material.emissiveIntensity = 0.3 + (s.k - 1) * 0.8;
+      });
+      setOpacity(rig, cur.co);
+
+      /* globe */
+      globe.position.set(cur.gx, cur.gy, 0); globe.scale.setScalar(Math.max(cur.gs, 0.001)); setOpacity(globe, cur.go);
+      if (selected) {
+        var dy = ((targetRotY - globe.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        globe.rotation.y += dy * Math.min(1, dt * 3); globe.rotation.x += (targetRotX - globe.rotation.x) * Math.min(1, dt * 3);
+      } else { globe.rotation.y += dt * (reduce ? 0.02 : 0.09); globe.rotation.x += (0.18 - globe.rotation.x) * 0.05; }
+      pulses.forEach(function (p) { p.t = (p.t + dt * p.sp) % 1; p.mesh.position.copy(p.curve.getPoint(p.t)); });
+      rings.forEach(function (r, i) { var s = 1 + ((time * 0.7 + i * 0.3) % 1) * 1.4; r.scale.setScalar(s); r.material.userData.base = 0.8 * (1 - ((time * 0.7 + i * 0.3) % 1)); });
+      Object.keys(pins).forEach(function (id) { var on = selected && selected.id === id; pins[id].scale.setScalar(on ? 1.9 : 1); });
+
+      /* motes, camera and lens */
+      var sa = sg.attributes.position.array;
+      for (var j = 0; j < sa.length; j += 3) { sa[j + 1] += dt * (0.18 + (j % 7) * 0.03); sa[j] += Math.sin(time + j) * dt * 0.08; if (sa[j + 1] > 7) sa[j + 1] = -7; }
+      sg.attributes.position.needsUpdate = true;
+      camera.position.x += (S.mx * 0.7 - camera.position.x) * 0.04;
+      camera.position.y += (-S.my * 0.45 - camera.position.y) * 0.04;
+      camera.position.z = cur.cam; camera.lookAt(0, 0, 0);
+      var fov = 42 + Math.min(vel, 3) * 2.2;
+      if (Math.abs(fov - lastFov) > 0.05) { lastFov = fov; camera.fov = fov; camera.updateProjectionMatrix(); }
+      l1.intensity = 1.25 + t * 0.6;
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(frame);
+  }
+  try { initGL(); } catch (err) { if (window.console) console.error("3D stage failed", err); }
+
+  /* ---------- chapter tracking ---------- */
+  var secs = Array.prototype.slice.call(document.querySelectorAll("section[data-i]"));
+  var sweepEl = $("sweep");
+  function setSection(i) {
+    if (i !== S.section && !reduce) { sweepEl.classList.remove("go"); void sweepEl.offsetWidth; sweepEl.classList.add("go"); }
+    S.section = i;
+    document.querySelectorAll("[data-nav]").forEach(function (a) { a.classList.toggle("on", +a.getAttribute("data-nav") === i); });
+    if (i !== 4) document.body.style.cursor = "";
+  }
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) setSection(+e.target.getAttribute("data-i")); });
+    }, { rootMargin: "-45% 0px -45% 0px", threshold: 0 });
+    secs.forEach(function (s) { io.observe(s); });
+  }
+
+  /* ---------- scroll reveals ---------- */
+  if (!reduce && "IntersectionObserver" in window) {
+    var rvEls = Array.prototype.slice.call(document.querySelectorAll(".chapter .col, .chapter .tools, .chapter .ports, .chapter .slider-box, .chapter .note, .console h2, .console > div > p, .console .shell, .insights h2, .insights > div > p, .insights .charts"));
+    var vh = window.innerHeight;
+    rvEls.forEach(function (el) { el.classList.add("rv"); if (el.getBoundingClientRect().top > vh * 0.92) el.classList.add("pre"); });
+    var io2 = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.remove("pre"); io2.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -8% 0px" });
+    rvEls.forEach(function (el) { if (el.classList.contains("pre")) io2.observe(el); });
+  }
+
+  /* ---------- tool hover ---------- */
+  document.querySelectorAll(".tool").forEach(function (el) {
+    var k = el.getAttribute("data-tool");
+    el.addEventListener("pointerenter", function () { S.hoverTool = k; });
+    el.addEventListener("pointerleave", function () { S.hoverTool = null; });
+    el.addEventListener("focus", function () { S.hoverTool = k; });
+    el.addEventListener("blur", function () { S.hoverTool = null; });
+  });
+
+  /* ---------- prompts into the console ---------- */
+  function goConsole(text) {
+    var q = $("q"); q.value = text;
+    $("console").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    setTimeout(function () { q.focus({ preventScroll: true }); }, 500);
+  }
+
+  /* ---------- ports ---------- */
+  var pl = $("portList");
+  PORTS.forEach(function (p) {
+    var b = document.createElement("button"); b.type = "button"; b.className = "port-btn"; b.id = "pb-" + p.id;
+    b.textContent = p.name; b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", function () { selectPort(p.id); });
+    pl.appendChild(b);
+  });
+  function selectPort(id) {
+    var p = PORTS.filter(function (x) { return x.id === id; })[0]; if (!p) return;
+    S.selectedPort = p;
+    PORTS.forEach(function (x) { $("pb-" + x.id).setAttribute("aria-pressed", x.id === id ? "true" : "false"); });
+    $("portPanel").hidden = false; $("pName").textContent = p.name;
+    $("pCoords").textContent = p.lat.toFixed(2) + ", " + p.lon.toFixed(2); $("pOut").textContent = "";
+    if (GL) GL.focus(p);
+  }
+  $("pAsk").addEventListener("click", function () {
+    var p = S.selectedPort; if (!p) return;
+    goConsole("Check the current corridor conditions at latitude " + p.lat + ", longitude " + p.lon + " (" + p.name + ").");
+  });
+  $("pLive").addEventListener("click", function () {
+    var p = S.selectedPort, out = $("pOut"); if (!p) return;
+    out.textContent = "Fetching live conditions...";
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=" + p.lat + "&longitude=" + p.lon + "&current_weather=true")
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (j) {
+        var c = j.current_weather || {}, wind = c.windspeed || 0;
+        out.textContent = "Temperature " + c.temperature + " C, wind " + wind + " km/h. " + (wind > 10 ? "High transit disruption." : "Corridor normal.");
+      })
+      .catch(function () { out.textContent = "Live weather is not reachable from this view. It works when the page runs on your own machine."; });
+  });
+
+  /* ---------- excursion ---------- */
+  var sev = $("sev");
+  function updSev() {
+    var v = +sev.value; S.sev = v;
+    var tx = v < 25 ? "Inside range" : v < 60 ? "Drifting toward the limit" : "Excursion. Check the SOP before you reroute.";
+    var col = v < 25 ? "var(--azure)" : v < 60 ? "var(--sun)" : "var(--ember)";
+    $("sevTxt").textContent = tx; $("sevDot").style.background = col;
+  }
+  sev.addEventListener("input", updSev); updSev();
+  $("sevAsk").addEventListener("click", function () { goConsole("What are the temperature rules for fresh perishables?"); });
+
+  /* ---------- console ---------- */
+  var API = ""; try { API = localStorage.getItem("nivara.api") || ""; } catch (e) {}
+  $("apiBase").value = API;
+  function base() { return ($("apiBase").value || "").trim().replace(/\/+$/, ""); }
+  var session = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "s-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+  var online = false, busy = false;
+
+  function setOnline(ok, label) {
+    online = ok;
+    [["navDot", "navLbl"], ["cDot", "cLbl"]].forEach(function (p) { $(p[0]).classList.toggle("ok", ok); $(p[1]).textContent = label; });
+    renderEmpty();
+    if (ok) autoStats();
+  }
+  function health() {
+    fetch(base() + "/api/health").then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (j) { setOnline(true, "Agent online" + (j.llm ? ": " + j.llm : "")); })
+      .catch(function () { setOnline(false, "Backend offline"); });
+  }
+  $("apiBase").addEventListener("change", function () { try { localStorage.setItem("nivara.api", base()); } catch (e) {} health(); });
+
+  var stage = $("stage"), SUGG = [
+    "What are the temperature rules for fresh perishables?",
+    "Check the current corridor conditions at latitude 33.77, longitude -118.19.",
+    "Show the five records with the highest Delay_Probability."
+  ];
+  function renderEmpty() {
+    if (stage.querySelector(".msg")) return;
+    stage.innerHTML = "";
+    var box = document.createElement("div"); box.className = "empty";
+    var h = document.createElement("h3"), p = document.createElement("p");
+    if (online) {
+      h.textContent = "The agent is ready"; p.textContent = "Try one of these, or ask your own question.";
+    } else {
+      h.textContent = "Backend not connected";
+      p.innerHTML = "Start the API from your project root with <code>uvicorn src.api:app --port 8000</code> and open <code>http://localhost:8000</code>. If it runs elsewhere, enter its address above.";
+    }
+    box.append(h, p);
+    var sg = document.createElement("div"); sg.className = "sugg";
+    SUGG.forEach(function (s) { var b = document.createElement("button"); b.type = "button"; b.textContent = s; b.addEventListener("click", function () { $("q").value = s; $("q").focus(); }); sg.appendChild(b); });
+    box.appendChild(sg); stage.appendChild(box);
+  }
+  function md(s) {
+    var e = String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; });
+    e = e.replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    return e.split(/\n{2,}/).map(function (p) { return "<p>" + p.replace(/\n/g, "<br>") + "</p>"; }).join("");
+  }
+  var STATUS = { query_telemetry_db: "Querying fleet telemetry", fetch_corridor_conditions: "Checking corridor conditions", search_compliance_sop: "Searching the SOPs" };
+  function bubble(role) {
+    var d = document.createElement("div"); d.className = "msg " + role; stage.appendChild(d); stage.scrollTop = stage.scrollHeight; return d;
+  }
+  function addTrace(box, t) {
+    var d = document.createElement("details"); d.className = "trace " + t.type;
+    var s = document.createElement("summary"); s.textContent = (t.type === "tool_input" ? "Called " : "Returned ") + t.name;
+    var pre = document.createElement("pre"); pre.textContent = t.type === "tool_input" ? JSON.stringify(t.args, null, 2) : String(t.content);
+    d.append(s, pre); box.appendChild(d);
+  }
+  function send(text) {
+    if (busy || !text.trim()) return;
+    if (!online) { health(); }
+    var first = stage.querySelector(".empty"); if (first) stage.innerHTML = "";
+    var u = bubble("user"); u.textContent = text;
+    var b = bubble("bot"), tr = document.createElement("div"), st = document.createElement("div"), body = document.createElement("div");
+    tr.className = "traces"; st.className = "status"; st.textContent = "Thinking"; b.append(tr, st, body);
+    busy = true; $("sendBtn").disabled = true;
+    function fail(m) { st.remove(); body.innerHTML = md(m); b.classList.add("done"); }
+    fetch(base() + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: session, message: text }) })
+      .then(function (r) {
+        if (!r.ok || !r.body) throw new Error("The backend answered with status " + r.status + ".");
+        var rd = r.body.getReader(), dec = new TextDecoder(), buf = "", got = false;
+        function handle(line) {
+          if (!line.trim()) return; var ev; try { ev = JSON.parse(line); } catch (e) { return; }
+          if (ev.type === "tool_input") { addTrace(tr, ev); st.textContent = STATUS[ev.name] || "Working"; }
+          else if (ev.type === "tool_output") { addTrace(tr, ev); st.textContent = "Reading the result"; }
+          else if (ev.type === "final") { got = true; st.remove(); body.innerHTML = md(ev.content); b.classList.add("done"); }
+          else if (ev.type === "error") { got = true; fail("**Something went wrong.** " + ev.message); }
+          stage.scrollTop = stage.scrollHeight;
+        }
+        function pump() {
+          return rd.read().then(function (x) {
+            if (x.done) { if (buf) handle(buf); if (!got) fail("The agent finished without an answer. Try rephrasing the question."); return; }
+            buf += dec.decode(x.value, { stream: true }); var parts = buf.split("\n"); buf = parts.pop(); parts.forEach(handle); return pump();
+          });
+        }
+        return pump();
+      })
+      .catch(function (e) {
+        fail("**Could not reach the backend.** " + (e && e.message ? e.message + " " : "") + "Start it with `uvicorn src.api:app --port 8000` and check the address above.");
+        setOnline(false, "Backend offline");
+      })
+      .then(function () { busy = false; $("sendBtn").disabled = false; });
+  }
+  $("composer").addEventListener("submit", function (e) { e.preventDefault(); var q = $("q"), v = q.value; q.value = ""; send(v); });
+  $("newSession").addEventListener("click", function () {
+    session = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "s-" + Date.now(); stage.innerHTML = ""; renderEmpty();
+  });
+
+  /* tabs + audit */
+  function tab(which) {
+    var chat = which === "chat";
+    $("tabChat").setAttribute("aria-selected", chat); $("tabAudit").setAttribute("aria-selected", !chat);
+    $("viewChat").hidden = !chat; $("viewAudit").hidden = chat;
+  }
+  $("tabChat").addEventListener("click", function () { tab("chat"); });
+  $("tabAudit").addEventListener("click", function () { tab("audit"); });
+  $("auditForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var msg = $("auditMsg"), tbl = $("auditTable"); msg.textContent = "Checking credentials..."; tbl.hidden = true;
+    fetch(base() + "/api/audit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: $("aUser").value, password: $("aPass").value }) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok) { msg.textContent = x.j.detail || "Could not load the audit trail."; return; }
+        $("aPass").value = "";
+        var rows = x.j.rows || [];
+        if (!rows.length) { msg.textContent = "No audit entries yet. Ask the agent a question first."; return; }
+        msg.textContent = "Showing the latest " + rows.length + " entries.";
+        var cols = ["LogID", "Timestamp", "SessionID", "NodeExecuted", "ToolName", "Content"];
+        var t = document.createElement("table"), hr = document.createElement("tr");
+        cols.forEach(function (c) { var th = document.createElement("th"); th.textContent = c; hr.appendChild(th); });
+        var thd = document.createElement("thead"); thd.appendChild(hr); t.appendChild(thd);
+        var tb = document.createElement("tbody");
+        rows.forEach(function (r) { var tr = document.createElement("tr"); cols.forEach(function (c) { var td = document.createElement("td"); td.textContent = r[c] == null ? "" : String(r[c]).slice(0, 400); tr.appendChild(td); }); tb.appendChild(tr); });
+        t.appendChild(tb); tbl.innerHTML = ""; tbl.appendChild(t); tbl.hidden = false;
+      })
+      .catch(function () { msg.textContent = "Could not reach the backend."; });
+  });
+
+  /* ---------- data charts ---------- */
+  var DATA = null, statsBusy = false, statsTried = false, tipEl = $("tip"), chartsEl = $("charts");
+  function fmt(n, d) { return Number(n).toLocaleString("en-IN", { maximumFractionDigits: d == null ? 1 : d }); }
+  function compact(v) { return v >= 1000 ? fmt(v / 1000, v % 1000 ? 1 : 0) + "k" : fmt(v, 0); }
+  function nice(m) {
+    if (!(m > 0)) return 1;
+    var p = Math.pow(10, Math.floor(Math.log10(m))), r = m / p, st = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+    for (var i = 0; i < st.length; i++) if (r <= st[i] + 1e-9) return st[i] * p;
+    return 10 * p;
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function setSrc(text, ok) { $("dSrc").textContent = text; $("dDot").classList.toggle("ok", !!ok); }
+  function dnote(text) { $("dataNote").textContent = text || ""; }
+
+  var T = {
+    risk: ["Risk classification", "How many records fall in each class"],
+    temp: ["Temperature distribution", "Records in each temperature band"],
+    delay: ["Delay probability distribution", "Records in each delay-probability band. Orange marks the peak"],
+    cong: ["Delay by port congestion", "Average delay probability at each congestion level. Orange marks the highest. Hover for record counts"],
+    trend: ["Delay probability over time", "Average delay probability"],
+    scatter: ["Route risk against delay", "One dot per record, from a random sample"]
+  };
+  function card(key, body, table, sub) {
+    return '<article class="card"><h3>' + esc(T[key][0]) + '</h3><p class="sub">' + esc(sub || T[key][1]) + '</p>' + body +
+      (table ? '<details class="tbl"><summary>View as table</summary><div class="table-scroll">' + table + '</div></details>' : '') + '</article>';
+  }
+  function emptyCard(key, msg) { return card(key, '<div class="chart-empty">' + esc(msg) + '</div>', null); }
+  function tableHtml(head, rows) {
+    return '<table><thead><tr>' + head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join("") + '</tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join("") + '</tr>'; }).join("") + '</tbody></table>';
+  }
+
+  function hbars(items, total) {
+    var max = 0; items.forEach(function (i) { if (i.n > max) max = i.n; });
+    return '<div class="hbars">' + items.map(function (i) {
+      var w = max ? Math.max(1.5, i.n / max * 100) : 0, pct = total ? i.n / total * 100 : 0;
+      return '<div class="hrow" data-tip="' + esc(i.label + ": " + fmt(i.n, 0) + " records (" + fmt(pct, 1) + "%)") + '"><span class="hl">' + esc(i.label) + '</span><span class="ht"><i style="width:' + w + '%"></i></span><span class="hv">' + fmt(i.n, 0) + ' <em>' + fmt(pct, 1) + '%</em></span></div>';
+    }).join("") + '</div>';
+  }
+  function topRound(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h);
+    return "M" + x + "," + (y + h) + "V" + (y + r) + "Q" + x + "," + y + " " + (x + r) + "," + y + "H" + (x + w - r) + "Q" + (x + w) + "," + y + " " + (x + w) + "," + (y + r) + "V" + (y + h) + "Z";
+  }
+  var CW = 560, CH = 240, ML = 46, MR = 12, MT = 12, MB = 36, IW = CW - ML - MR, IH = CH - MT - MB;
+  function gridY(top, yfmt) {
+    var s = "";
+    for (var g = 0; g <= 4; g++) {
+      var y = MT + IH - IH * g / 4;
+      s += '<line class="grid" x1="' + ML + '" x2="' + (CW - MR) + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (ML - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + yfmt(top * g / 4) + '</text>';
+    }
+    return s;
+  }
+  function colsSvg(cols, o) {
+    var max = 0; cols.forEach(function (c) { if (c.v > max) max = c.v; });
+    var top = nice(max / 4) * 4, bw = IW / cols.length, gap = Math.min(2, bw * 0.15), hiI = -1, hiV = -1;
+    cols.forEach(function (c, i) { if (c.v > hiV) { hiV = c.v; hiI = i; } });
+    var s = '<svg class="svg" viewBox="0 0 ' + CW + ' ' + CH + '" role="img" aria-label="' + esc(o.aria) + '">' + gridY(top, o.yfmt);
+    cols.forEach(function (c, i) {
+      var h = top ? IH * c.v / top : 0, x = ML + i * bw + gap / 2;
+      s += '<g data-tip="' + esc(c.tip) + '"><rect class="hit" x="' + (ML + i * bw) + '" y="' + MT + '" width="' + bw + '" height="' + IH + '"/><path class="bar' + (i === hiI ? ' hi' : '') + '" d="' + topRound(x, MT + IH - h, Math.max(1, bw - gap), Math.max(0, h), 4) + '"/></g>';
+    });
+    s += '<line class="base" x1="' + ML + '" x2="' + (CW - MR) + '" y1="' + (MT + IH) + '" y2="' + (MT + IH) + '"/>';
+    if (o.edge) {
+      s += '<text class="ax" x="' + ML + '" y="' + (CH - 12) + '">' + esc(o.edge[0]) + '</text><text class="ax" x="' + (ML + IW / 2) + '" y="' + (CH - 12) + '" text-anchor="middle">' + esc(o.edge[1]) + '</text><text class="ax" x="' + (CW - MR) + '" y="' + (CH - 12) + '" text-anchor="end">' + esc(o.edge[2]) + '</text>';
+    } else if (o.cats) {
+      var every = cols.length > 8 ? 2 : 1;
+      o.cats.forEach(function (t, i) { if (i % every === 0) s += '<text class="ax" x="' + (ML + (i + 0.5) * bw) + '" y="' + (CH - 12) + '" text-anchor="middle">' + esc(String(t).slice(0, 10)) + '</text>'; });
+    }
+    return s + '</svg>';
+  }
+  var uid = 0;
+  function lineSvg(pts, o) {
+    var lo = Infinity, hi = -Infinity; pts.forEach(function (p) { if (p.y < lo) lo = p.y; if (p.y > hi) hi = p.y; });
+    if (lo === hi) { lo -= 1; hi += 1; }
+    var pad = (hi - lo) * 0.12; lo = Math.max(0, lo - pad) === 0 && lo - pad < 0 ? 0 : lo - pad; hi += pad;
+    var n = pts.length, id = "lg" + (++uid);
+    function X(i) { return n > 1 ? ML + IW * i / (n - 1) : ML + IW / 2; }
+    function Y(v) { return MT + IH - IH * (v - lo) / (hi - lo); }
+    var s = '<svg class="svg" viewBox="0 0 ' + CW + ' ' + CH + '" role="img" aria-label="' + esc(o.aria) + '"><defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e8bff" stop-opacity=".28"/><stop offset="1" stop-color="#2e8bff" stop-opacity="0"/></linearGradient></defs>';
+    for (var g = 0; g <= 4; g++) { var v = lo + (hi - lo) * g / 4, y = Y(v); s += '<line class="grid" x1="' + ML + '" x2="' + (CW - MR) + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (ML - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + o.yfmt(v) + '</text>'; }
+    var d = pts.map(function (p, i) { return (i ? "L" : "M") + X(i).toFixed(1) + "," + Y(p.y).toFixed(1); }).join("");
+    s += '<path d="' + d + 'L' + X(n - 1).toFixed(1) + ',' + (MT + IH) + 'L' + X(0).toFixed(1) + ',' + (MT + IH) + 'Z" fill="url(#' + id + ')"/><path class="line" d="' + d + '"/>';
+    pts.forEach(function (p, i) { s += '<circle class="hitc" data-tip="' + esc(p.x + ": " + o.yfmt(p.y)) + '" cx="' + X(i).toFixed(1) + '" cy="' + Y(p.y).toFixed(1) + '" r="9"/>'; });
+    s += '<circle class="dot-end" cx="' + X(n - 1).toFixed(1) + '" cy="' + Y(pts[n - 1].y).toFixed(1) + '" r="5"/>';
+    s += '<text class="ax" x="' + ML + '" y="' + (CH - 12) + '">' + esc(pts[0].x) + '</text>';
+    if (n > 2) s += '<text class="ax" x="' + (ML + IW / 2) + '" y="' + (CH - 12) + '" text-anchor="middle">' + esc(pts[Math.floor(n / 2)].x) + '</text>';
+    s += '<text class="ax" x="' + (CW - MR) + '" y="' + (CH - 12) + '" text-anchor="end">' + esc(pts[n - 1].x) + '</text></svg>';
+    return s;
+  }
+  function scatterSvg(pts, o) {
+    var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    pts.forEach(function (p) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; });
+    if (x0 === x1) { x0 -= 1; x1 += 1; } if (y0 === y1) { y0 -= 1; y1 += 1; }
+    function X(v) { return ML + IW * (v - x0) / (x1 - x0); }
+    function Y(v) { return MT + IH - IH * (v - y0) / (y1 - y0); }
+    var s = '<svg class="svg" viewBox="0 0 ' + CW + ' ' + CH + '" role="img" aria-label="' + esc(o.aria) + '">';
+    for (var g = 0; g <= 4; g++) {
+      var yv = y0 + (y1 - y0) * g / 4, y = Y(yv);
+      s += '<line class="grid" x1="' + ML + '" x2="' + (CW - MR) + '" y1="' + y + '" y2="' + y + '"/><text class="ax" x="' + (ML - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + o.yfmt(yv) + '</text>';
+    }
+    pts.forEach(function (p) { s += '<circle class="pt" cx="' + X(p[0]).toFixed(1) + '" cy="' + Y(p[1]).toFixed(1) + '" r="2.8"/>'; });
+    s += '<text class="ax" x="' + ML + '" y="' + (CH - 12) + '">' + fmt(x0, 2) + '</text><text class="ax" x="' + (ML + IW / 2) + '" y="' + (CH - 12) + '" text-anchor="middle">' + esc(o.xname) + '</text><text class="ax" x="' + (CW - MR) + '" y="' + (CH - 12) + '" text-anchor="end">' + fmt(x1, 2) + '</text></svg>';
+    return s;
+  }
+
+  function histCols(h, xf, unit) {
+    return h.bins.map(function (c, i) {
+      var a = h.min + i * h.width, b = a + h.width;
+      return { v: c, tip: xf(a) + " to " + xf(b) + (unit || "") + ": " + fmt(c, 0) + " records" };
+    });
+  }
+  function renderCharts(d) {
+    var tiles = $("tiles"), out = [];
+    if (!d) {
+      tiles.innerHTML = "";
+      ["risk", "temp", "delay", "cong", "trend", "scatter"].forEach(function (k) { out.push(emptyCard(k, "Waiting for data. Load it from the database or a CSV file.")); });
+      chartsEl.innerHTML = out.join(""); return;
+    }
+    DATA = d;
+    var isProb = d.delay && d.delay.max <= 1.0001, unit = d.tempUnit ? " " + d.tempUnit : "";
+    var fd = function (v) { return isProb ? fmt(v * 100, 0) + "%" : fmt(v, 2); };
+    var t = '<div class="tile"><b>' + fmt(d.total, 0) + '</b><span>records</span></div>';
+    if (d.avgDelay != null) t += '<div class="tile"><b>' + (isProb ? fmt(d.avgDelay * 100, 1) + "%" : fmt(d.avgDelay, 2)) + '</b><span>average delay probability</span></div>';
+    if (d.avgTemp != null) t += '<div class="tile"><b>' + fmt(d.avgTemp, 1) + unit + '</b><span>average temperature</span></div>';
+    tiles.innerHTML = t;
+
+    if (d.risk && d.risk.length) out.push(card("risk", hbars(d.risk, d.total), tableHtml(["Class", "Records", "Share"], d.risk.map(function (r) { return [r.label, fmt(r.n, 0), fmt(r.n / d.total * 100, 1) + "%"]; }))));
+    else out.push(emptyCard("risk", "No risk classification column was found."));
+
+    if (d.temp) {
+      var tf = function (v) { return fmt(v, 1); };
+      out.push(card("temp", colsSvg(histCols(d.temp, tf, unit), { yfmt: compact, edge: [tf(d.temp.min) + unit, tf((d.temp.min + d.temp.max) / 2) + unit, tf(d.temp.max) + unit], aria: "Histogram of temperature readings" }),
+        tableHtml(["From", "To", "Records"], d.temp.bins.map(function (c, i) { return [tf(d.temp.min + i * d.temp.width) + unit, tf(d.temp.min + (i + 1) * d.temp.width) + unit, fmt(c, 0)]; })),
+        "Records in each temperature band" + (unit ? ", in" + unit : ", in the units of your file") + ". Orange marks the peak"));
+    } else out.push(emptyCard("temp", "No temperature column was found."));
+
+    if (d.delay) {
+      out.push(card("delay", colsSvg(histCols(d.delay, fd), { yfmt: compact, edge: [fd(d.delay.min), fd((d.delay.min + d.delay.max) / 2), fd(d.delay.max)], aria: "Histogram of delay probability" }),
+        tableHtml(["From", "To", "Records"], d.delay.bins.map(function (c, i) { return [fd(d.delay.min + i * d.delay.width), fd(d.delay.min + (i + 1) * d.delay.width), fmt(c, 0)]; }))));
+    } else out.push(emptyCard("delay", "No delay probability column was found."));
+
+    if (d.congestion && d.congestion.length) {
+      out.push(card("cong", colsSvg(d.congestion.map(function (g) { return { v: g.avg, tip: g.label + ": average " + fd(g.avg) + " across " + fmt(g.n, 0) + " records" }; }), { yfmt: fd, cats: d.congestion.map(function (g) { return g.label; }), aria: "Average delay probability by port congestion level" }),
+        tableHtml(["Congestion", "Average delay probability", "Records"], d.congestion.map(function (g) { return [g.label, fd(g.avg), fmt(g.n, 0)]; }))));
+    } else out.push(emptyCard("cong", "Needs a port congestion column and a delay probability column."));
+
+    if (d.daily && d.daily.length > 1) {
+      out.push(card("trend", lineSvg(d.daily, { yfmt: function (v) { return isProb ? fmt(v * 100, 1) + "%" : fmt(v, 3); }, aria: "Average delay probability over time" }),
+        tableHtml(["Period", "Average delay probability"], d.daily.map(function (p) { return [p.x, isProb ? fmt(p.y * 100, 2) + "%" : fmt(p.y, 3)]; })),
+        "Average delay probability per " + (d.grain || "day")));
+    } else out.push(emptyCard("trend", "Needs a timestamp column and a delay probability column with more than one period."));
+
+    if (d.scatter && d.scatter.length > 5) {
+      out.push(card("scatter", scatterSvg(d.scatter, { yfmt: fd, xname: "route risk index", aria: "Scatter of route risk index against delay probability" }), null,
+        "A random sample of " + fmt(d.scatter.length, 0) + " records. Each dot is one record"));
+    } else out.push(emptyCard("scatter", "Needs a route risk column and a delay probability column."));
+    chartsEl.innerHTML = out.join("");
+    setSrc(d.source === "csv" ? "From " + d.name : "From the database", true);
+    dnote(d.source === "csv" ? "Drawn in your browser from " + d.name + ". The file is not uploaded anywhere." : "Drawn from " + fmt(d.total, 0) + " records in FDE_VIEWS.VW_ACTIVE_FLEET.");
+  }
+
+  /* hover tooltip */
+  function hideTip() { tipEl.hidden = true; }
+  chartsEl.addEventListener("pointermove", function (e) {
+    var el = e.target.closest ? e.target.closest("[data-tip]") : null;
+    if (!el) { hideTip(); return; }
+    tipEl.textContent = el.getAttribute("data-tip"); tipEl.hidden = false;
+    tipEl.style.left = Math.min(e.clientX + 14, window.innerWidth - tipEl.offsetWidth - 8) + "px";
+    tipEl.style.top = Math.min(e.clientY + 16, window.innerHeight - tipEl.offsetHeight - 8) + "px";
+  });
+  chartsEl.addEventListener("pointerleave", hideTip);
+  window.addEventListener("scroll", hideTip, { passive: true });
+
+  /* database source */
+  function loadDb() {
+    if (statsBusy) return; statsBusy = true; setSrc("Loading from the database", false); dnote("");
+    fetch(base() + "/api/stats")
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.detail || "The backend answered with status " + r.status + "."); return j; }); })
+      .then(function (d) { d.source = "database"; renderCharts(d); if (d.errors && d.errors.length) dnote("Some charts could not be built. " + d.errors.join(" ")); })
+      .catch(function (e) { setSrc("Database not reachable", false); dnote((e && e.message ? e.message + " " : "") + "Start the API, or load a CSV file instead."); })
+      .then(function () { statsBusy = false; });
+  }
+  function autoStats() { if (!statsTried && !DATA) { statsTried = true; loadDb(); } }
+  $("dLoadDb").addEventListener("click", loadDb);
+
+  /* CSV source, computed in the browser */
+  function parseCSV(text) {
+    var rows = [], row = [], f = "", q = false, i = 0, n = text.length, c;
+    if (text.charCodeAt(0) === 0xFEFF) i = 1;
+    for (; i < n; i++) {
+      c = text.charCodeAt(i);
+      if (q) { if (c === 34) { if (text.charCodeAt(i + 1) === 34) { f += '"'; i++; } else q = false; } else f += text[i]; }
+      else if (c === 34) q = true;
+      else if (c === 44) { row.push(f); f = ""; }
+      else if (c === 10 || c === 13) { if (c === 13 && text.charCodeAt(i + 1) === 10) i++; row.push(f); f = ""; if (row.length > 1 || row[0] !== "") rows.push(row); row = []; }
+      else f += text[i];
+    }
+    if (f !== "" || row.length) { row.push(f); rows.push(row); }
+    return rows;
+  }
+  function histOf(vals, B) {
+    if (!vals.length) return null;
+    var lo = Infinity, hi = -Infinity, i;
+    for (i = 0; i < vals.length; i++) { if (vals[i] < lo) lo = vals[i]; if (vals[i] > hi) hi = vals[i]; }
+    if (hi === lo) hi = lo + 1;
+    var w = (hi - lo) / B, bins = []; for (i = 0; i < B; i++) bins.push(0);
+    for (i = 0; i < vals.length; i++) bins[Math.min(B - 1, Math.floor((vals[i] - lo) / w))]++;
+    return { min: lo, max: hi, bins: bins, width: w };
+  }
+  function groupAvg(xs, ys) {
+    var m = {}, distinct = 0, numeric = true, i, k;
+    for (i = 0; i < xs.length; i++) {
+      k = xs[i]; if (k === "" || k == null) continue;
+      if (!m[k]) { m[k] = { s: 0, n: 0, c: 0 }; distinct++; if (!isFinite(parseFloat(k))) numeric = false; }
+      m[k].n++; if (isFinite(ys[i])) { m[k].s += ys[i]; m[k].c++; }
+    }
+    var keys = Object.keys(m);
+    if (!keys.length) return [];
+    if (numeric && distinct > 14) {
+      var vals = keys.map(parseFloat), lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), B = 10, w = (hi - lo) / B || 1, bins = [];
+      for (i = 0; i < B; i++) bins.push({ s: 0, n: 0, c: 0 });
+      keys.forEach(function (kk) { var b = Math.min(B - 1, Math.floor((parseFloat(kk) - lo) / w)); bins[b].s += m[kk].s; bins[b].c += m[kk].c; bins[b].n += m[kk].n; });
+      return bins.map(function (b, j) { return { label: fmt(lo + j * w, 1) + "-" + fmt(lo + (j + 1) * w, 1), avg: b.c ? b.s / b.c : null, n: b.n }; }).filter(function (g) { return g.n > 0 && g.avg != null; });
+    }
+    if (numeric) keys.sort(function (a, b) { return parseFloat(a) - parseFloat(b); }); else keys.sort();
+    return keys.slice(0, 14).map(function (kk) { return { label: kk, avg: m[kk].c ? m[kk].s / m[kk].c : null, n: m[kk].n }; }).filter(function (g) { return g.avg != null; });
+  }
+  function dayKey(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if (m) return m[1] + "-" + m[2] + "-" + m[3];
+    var t = Date.parse(s); return isNaN(t) ? null : new Date(t).toISOString().slice(0, 10);
+  }
+  function statsFromCSV(rows, name) {
+    if (rows.length < 2) throw new Error("The file has no data rows.");
+    var head = rows[0].map(function (h) { return h.trim(); }), norm = head.map(function (h) { return h.toLowerCase().replace(/[^a-z0-9]/g, ""); });
+    function find(re) { for (var i = 0; i < norm.length; i++) if (re.test(norm[i])) return i; return -1; }
+    var c = { ts: find(/timestamp|datetime|^date|time$/), temp: find(/temp/), delay: find(/delayprob/), risk: find(/riskclass/), cong: find(/congest/), route: find(/routerisk/) };
+    if (c.temp < 0 && c.delay < 0 && c.risk < 0) throw new Error("None of the expected columns were found. Look for names like iot_temperature, delay_probability and risk_classification.");
+    var n = rows.length - 1, risk = {}, tv = [], dv = [], cx = [], cy = [], days = {}, pairs = [], dsum = 0, dn = 0, tsum = 0, tn = 0, i, r;
+    for (i = 1; i <= n; i++) {
+      r = rows[i];
+      var tmp = c.temp >= 0 ? parseFloat(r[c.temp]) : NaN, dl = c.delay >= 0 ? parseFloat(r[c.delay]) : NaN, rt = c.route >= 0 ? parseFloat(r[c.route]) : NaN;
+      if (isFinite(tmp)) { tv.push(tmp); tsum += tmp; tn++; }
+      if (isFinite(dl)) { dv.push(dl); dsum += dl; dn++; }
+      if (c.risk >= 0 && r[c.risk] !== "" && r[c.risk] != null) risk[r[c.risk]] = (risk[r[c.risk]] || 0) + 1;
+      if (c.cong >= 0) { cx.push(r[c.cong]); cy.push(dl); }
+      if (c.ts >= 0 && isFinite(dl)) { var k = dayKey(r[c.ts]); if (k) { if (!days[k]) days[k] = [0, 0]; days[k][0] += dl; days[k][1]++; } }
+      if (isFinite(rt) && isFinite(dl)) pairs.push([rt, dl]);
+    }
+    var dk = Object.keys(days).sort(), grain = "day", dly = [];
+    if (dk.length > 120) {
+      var mo = {}; dk.forEach(function (k) { var mk = k.slice(0, 7); if (!mo[mk]) mo[mk] = [0, 0]; mo[mk][0] += days[k][0]; mo[mk][1] += days[k][1]; });
+      days = mo; dk = Object.keys(mo).sort(); grain = "month";
+    }
+    dk.slice(-180).forEach(function (k) { dly.push({ x: k, y: days[k][0] / days[k][1] }); });
+    var step = Math.max(1, Math.floor(pairs.length / 400)), sc = []; for (i = 0; i < pairs.length && sc.length < 400; i += step) sc.push(pairs[i]);
+    var rk = Object.keys(risk).map(function (k) { return { label: k, n: risk[k] }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 10);
+    var unit = c.temp >= 0 && /(_c$|celsius|degc)/i.test(head[c.temp]) ? "°C" : "";
+    return { source: "csv", name: name, total: n, risk: rk, temp: histOf(tv, 24), delay: histOf(dv, 24), congestion: c.cong >= 0 ? groupAvg(cx, cy) : [], daily: dly, grain: grain, scatter: sc, avgDelay: dn ? dsum / dn : null, avgTemp: tn ? tsum / tn : null, tempUnit: unit };
+  }
+  $("dLoadCsv").addEventListener("click", function () { $("csvFile").click(); });
+  $("csvFile").addEventListener("change", function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    setSrc("Reading " + f.name, false); dnote("");
+    var rd = new FileReader();
+    rd.onload = function () {
+      try { renderCharts(statsFromCSV(parseCSV(String(rd.result)), f.name)); }
+      catch (e) { setSrc("Could not use that file", false); dnote(e.message); }
+    };
+    rd.onerror = function () { setSrc("Could not read that file", false); dnote("The browser could not read the file. Try again."); };
+    rd.readAsText(f);
+    this.value = "";
+  });
+  renderCharts(null);
+
+  renderEmpty(); health();
+})();
+</script>
+
+</body>
+</html>
