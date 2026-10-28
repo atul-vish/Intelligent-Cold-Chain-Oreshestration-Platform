@@ -21,6 +21,10 @@ credentials/
 *_credentials.*
 *credentials*.json
 
+# Personal EC2 connection scripts
+connect-ec2-sql.ps1
+connect-ec2-sql-ready.ps1
+
 # Python bytecode, environments, caches, and test output
 __pycache__/
 *.py[cod]
@@ -145,7 +149,4 @@ crash.log
 # Local-only overrides
 *.local
 
-# IMPORTANT:
-# Do not ignore *.sql globally: reviewed SQL source scripts belong in Git.
-# Do not ignore *.ps1 globally: safe project automation may belong in Git.
-# Review all files for credentials before committing.
+
