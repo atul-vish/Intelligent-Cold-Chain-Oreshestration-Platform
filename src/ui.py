@@ -45,7 +45,7 @@ from src.orchestrator import AGENT_LLM_SETTING, build_turn, fde_agent  # noqa: E
 
 # The tables/views currently live in master on this SQL Server instance.
 DB_HOST = os.getenv("SQL_SERVER_HOST", "127.0.0.1")
-DB_PORT = os.getenv("SQL_SERVER_PORT", "11433")
+DB_PORT = os.getenv("SQL_SERVER_PORT", "1433")
 DB_NAME = os.getenv("SQL_SERVER_DATABASE", "master")
 DB_USER = os.getenv("SQL_AGENT_USER", "USR_FDE_RO")
 DB_PASSWORD = os.getenv("SQL_AGENT_PASSWORD")
@@ -670,7 +670,7 @@ import socket
 @app.get("/api/debug-connection")
 def debug_connection():
     try:
-        with socket.create_connection(("127.0.0.1", 11433), timeout=5):
+        with socket.create_connection(("127.0.0.1", 1433), timeout=5):
             return {"ssh_tunnel": "CONNECTED"}
     except OSError:
         return {"ssh_tunnel": "UNREACHABLE"}
