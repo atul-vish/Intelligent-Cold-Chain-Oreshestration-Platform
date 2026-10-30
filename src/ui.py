@@ -682,3 +682,23 @@ if __name__ == "__main__":
         host=os.getenv("NIVARA_HOST", "127.0.0.1"),
         port=int(os.getenv("NIVARA_PORT", "8000")),
     )
+
+
+import socket
+import os
+
+
+@app.get("/api/debug-connection")
+def debug_connection():
+    result = {}
+
+    try:
+        with socket.create_connection(("127.0.0.1", 11433), timeout=5):
+            result["ssh_tunnel"] = "CONNECTED"
+    except Exception as e:
+        result["ssh_tunnel"] = f"FAILED: {str(e)}"
+
+    result["sql_host"] = os.getenv("SQL_SERVER_HOST")
+    result["sql_port"] = os.getenv("SQL_SERVER_PORT")
+
+    return result
