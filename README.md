@@ -4,7 +4,7 @@
 <h2>
 <p align="center"> Intelligent Cold Chain Orchestration Platform </p>
 </h2>
-**An AI-powered logistics intelligence and orchestration platform combining Agentic AI, Retrieval-Augmented Generation (RAG), SQL analytics, and safety guardrails to transform cold-chain operations into intelligent, data-driven workflows.**
+An AI-powered logistics intelligence and orchestration platform combining Agentic AI, Retrieval-Augmented Generation (RAG), SQL analytics, and safety guardrails to transform cold-chain operations into intelligent, data-driven workflows.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
